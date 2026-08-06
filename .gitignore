@@ -1,20 +1,59 @@
-# Node
+# ==========================
+# Dependencies
+# ==========================
 **/node_modules/
+
+# ==========================
+# Build Output
+# ==========================
 **/dist/
+**/build/
+**/.next/
+**/coverage/
 
-# Environment
+# ==========================
+# Environment Variables
+# ==========================
 **/.env
+**/.env.local
+**/.env.development.local
+**/.env.production.local
+**/.env.test.local
 
-# SQLite
+# ==========================
+# SQLite Database
+# ==========================
 **/*.db
 **/*.db-shm
 **/*.db-wal
 
+# ==========================
 # Logs
+# ==========================
 *.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# VSCode
+# ==========================
+# VS Code
+# ==========================
 .vscode/
 
-# macOS
+# ==========================
+# OS Files
+# ==========================
 .DS_Store
+Thumbs.db
+
+# ==========================
+# Cache
+# ==========================
+.cache/
+.tmp/
+.temp/
+
+# ==========================
+# TypeScript
+# ==========================
+*.tsbuildinfo
