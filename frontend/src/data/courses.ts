@@ -1,0 +1,45 @@
+import { CoursePath } from '../types';
+
+export const COURSE_PATHS: CoursePath[] = [
+  {
+    id: 'fullstack-react',
+    title: 'Fullstack React & Next.js Architecture',
+    description: 'Master component-driven design systems, Zustand state management, and server components.',
+    icon: '⚡',
+    lessonsCount: 24,
+    estimatedHours: 12,
+    tag: 'Popular',
+    badgeColor: 'bg-cyan-500/20 text-[#5BE4FF] border-cyan-500/30',
+    isPopular: true,
+  },
+  {
+    id: 'typescript-mastery',
+    title: 'Strict TypeScript Design Patterns',
+    description: 'Generics, conditional types, mapped types, and enterprise-grade architecture.',
+    icon: '📘',
+    lessonsCount: 18,
+    estimatedHours: 9,
+    tag: 'Core',
+    badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  },
+  {
+    id: 'tailwind-motion',
+    title: 'Modern UI & Framer Motion Physics',
+    description: 'Build responsive glassmorphic design systems with fluid spring physics animations.',
+    icon: '🎨',
+    lessonsCount: 15,
+    estimatedHours: 8,
+    tag: 'Design',
+    badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  },
+  {
+    id: 'backend-node-api',
+    title: 'High-Performance Node.js REST API',
+    description: 'PostgreSQL, Redis caching, microservices, and secure JWT authentication.',
+    icon: '🚀',
+    lessonsCount: 30,
+    estimatedHours: 16,
+    tag: 'Backend',
+    badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  },
+];
