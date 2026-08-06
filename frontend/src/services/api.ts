@@ -1,4 +1,4 @@
-const API_BASE = 'https://oxybott-learning.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://oxybott-learning.onrender.com/api';
 
 export interface ApiResponse<T = any> {
   data?: T;

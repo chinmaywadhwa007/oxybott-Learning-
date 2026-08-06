@@ -47,7 +47,10 @@ export interface UploadResponse {
   error?: string;
 }
 
-const API_BASE = 'http://localhost:5000/api/arduino';
+const API_BASE =
+  import.meta.env.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL}/arduino`
+    : 'https://oxybott-learning.onrender.com/api/arduino';
 
 export async function fetchBoards(): Promise<BoardProfile[]> {
   try {
@@ -105,7 +108,7 @@ export async function requestCompile(code: string, fqbn: string): Promise<Compil
       success: false,
       simulated: false,
       logs: [
-        '❌ [Network Error] Backend compiler API is offline or unreachable at http://localhost:5000/api/arduino/compile',
+        '❌ [Network Error] Backend compiler API is offline or unreachable.',
         `Details: ${err.message || 'Connection refused'}`,
       ],
       errors: [err.message || 'Network error'],
@@ -138,7 +141,7 @@ export async function requestUpload(code: string, fqbn: string, port: string): P
       success: false,
       simulated: false,
       logs: [
-        '❌ [Network Error] Backend uploader API is offline or unreachable at http://localhost:5000/api/arduino/upload',
+        '❌ [Network Error] Backend uploader API is offline or unreachable.',
         `Details: ${err.message || 'Connection refused'}`,
       ],
       error: err.message || 'Network error',
