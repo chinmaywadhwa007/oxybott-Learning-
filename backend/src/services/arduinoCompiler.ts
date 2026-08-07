@@ -6,6 +6,12 @@ import os from 'os';
 
 const execAsync = promisify(exec);
 
+export const ARDUINO_CLI =
+  process.env.ARDUINO_CLI_PATH ||
+  (process.platform === 'win32'
+    ? 'E:\\arduino\\arduino-cli.exe'
+    : 'arduino-cli');
+
 export interface MemoryUsage {
   flashBytes: number;
   flashPercent: number;
@@ -17,27 +23,52 @@ export interface MemoryUsage {
 
 export interface ArduinoCompileResponse {
   success: boolean;
-  simulated: boolean;
-  logs: string[];
-  warnings: string[];
-  errors: string[];
+  simulated?: boolean;
+  logs?: string[];
+  warnings?: string[];
+  errors?: string[];
   memoryUsage?: MemoryUsage;
-  compileTimeMs: number;
+  compileTimeMs?: number;
   sketchSize?: string;
   dynamicMem?: string;
+  error?: string;
+  details?: string;
+  platform?: string;
+  expectedPath?: string;
+  path?: string;
+  exitCode?: number;
+  code?: number;
+  stderr?: string;
+  stdout?: string;
+  commandExecuted?: string;
+  command?: string;
 }
 
 export class ArduinoCompilerService {
   /**
-   * Detects if Arduino CLI is installed and available in PATH
+   * Detects if Arduino CLI is installed and available in PATH / specified location
    */
-  public static async detectArduinoCli(): Promise<{ isAvailable: boolean; version?: string }> {
+  public static async detectArduinoCli(): Promise<{ isAvailable: boolean; version?: string; errorDetails?: string }> {
     try {
-      const { stdout } = await execAsync('arduino-cli version');
+      if (process.platform !== 'win32') {
+        try {
+          await execAsync(`which "${ARDUINO_CLI}"`);
+        } catch (_whichErr) {
+          return {
+            isAvailable: false,
+            errorDetails: 'Arduino CLI is not installed on this server.\nCompilation cannot run on Render until Arduino CLI is installed.',
+          };
+        }
+      }
+
+      const { stdout } = await execAsync(`"${ARDUINO_CLI}" version`);
       const versionStr = stdout.trim();
       return { isAvailable: true, version: versionStr };
-    } catch (_err) {
-      return { isAvailable: false };
+    } catch (_err: any) {
+      const details = process.platform !== 'win32'
+        ? 'Arduino CLI is not installed on this server.\nCompilation cannot run on Render until Arduino CLI is installed.'
+        : `Arduino CLI executable not found at specified path or in system PATH (${ARDUINO_CLI}).`;
+      return { isAvailable: false, errorDetails: details };
     }
   }
 
@@ -61,31 +92,39 @@ export class ArduinoCompilerService {
    */
   public static async compileSketch(code: string, fqbn: string): Promise<ArduinoCompileResponse> {
     const startTime = Date.now();
-    console.log('\n======================================================');
-    console.log('[ARDUINO CLI ENGINE] Starting Real Compilation Pipeline');
-    console.log(`[ARDUINO CLI ENGINE] Board FQBN: ${fqbn}`);
-    console.log(`[ARDUINO CLI ENGINE] Code Length: ${code.length} characters`);
-    console.log('======================================================\n');
+    console.log("Platform:", process.platform);
+    console.log("Node PATH:", process.env.PATH);
+    console.log("Arduino CLI:", ARDUINO_CLI);
 
     const cliStatus = await this.detectArduinoCli();
 
     if (!cliStatus.isAvailable) {
-      console.error('❌ [ARDUINO CLI ENGINE] Error: arduino-cli is not installed or not found in system PATH!');
+      const isWin = process.platform === 'win32';
+      const details = cliStatus.errorDetails || (isWin
+        ? `Arduino CLI executable not found at specified path or in system PATH: ${ARDUINO_CLI}`
+        : 'Arduino CLI is not installed on this server.\nCompilation cannot run on Render until Arduino CLI is installed.');
+
+      console.error(`❌ [ARDUINO CLI ENGINE] Error: ${details}`);
       return {
         success: false,
+        error: "Arduino CLI not found",
+        details: details,
+        platform: process.platform,
+        expectedPath: ARDUINO_CLI,
+        path: ARDUINO_CLI,
         simulated: false,
         logs: [
-          '❌ [Compilation Failed] "arduino-cli" command not found in system PATH.',
-          'Please install arduino-cli (https://arduino.github.io/arduino-cli) and ensure it is available in system PATH.',
+          `❌ [Compilation Failed] ${details}`,
         ],
         warnings: [],
-        errors: ['"arduino-cli" command not found in system PATH.'],
+        errors: [details],
         compileTimeMs: Date.now() - startTime,
       };
     }
 
     let tempDir: string | null = null;
     let buildDir: string | null = null;
+    let cmd = '';
 
     try {
       // 1. Generate Temp Project
@@ -97,8 +136,9 @@ export class ArduinoCompilerService {
       console.log(`[ARDUINO CLI ENGINE] Temporary sketch created at: ${generated.sketchPath}`);
 
       // 2. Execute arduino-cli compile command
-      const cmd = `arduino-cli compile --fqbn ${fqbn} --output-dir "${buildDir}" "${tempDir}"`;
-      console.log(`[ARDUINO CLI ENGINE] Executing command: ${cmd}`);
+      cmd = `"${ARDUINO_CLI}" compile --fqbn ${fqbn} --output-dir "${buildDir}" "${tempDir}"`;
+      console.log("Command:");
+      console.log(cmd);
 
       const { stdout, stderr } = await execAsync(cmd);
 
@@ -160,6 +200,13 @@ export class ArduinoCompilerService {
       return {
         success: false,
         simulated: false,
+        error: "Compilation failed",
+        exitCode: err.code !== undefined ? err.code : 1,
+        code: err.code !== undefined ? err.code : 1,
+        stderr: rawStderr,
+        stdout: rawStdout,
+        commandExecuted: cmd,
+        command: cmd,
         logs: logs.length > 0 ? logs : [`❌ Compilation error: ${err.message}`],
         warnings: [],
         errors: errors.length > 0 ? errors : [err.message || 'Compiler returned non-zero exit code.'],

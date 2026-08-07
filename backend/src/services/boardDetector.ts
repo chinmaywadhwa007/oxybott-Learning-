@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { ARDUINO_CLI } from './arduinoCompiler.js';
 
 const execAsync = promisify(exec);
 
@@ -95,7 +96,7 @@ export const SUPPORTED_BOARDS: BoardProfile[] = [
 
 export async function detectConnectedBoards(): Promise<{ cliInstalled: boolean; boards: BoardProfile[] }> {
   try {
-    const { stdout } = await execAsync('arduino-cli version');
+    const { stdout } = await execAsync(`"${ARDUINO_CLI}" version`);
     const isCliAvailable = stdout.toLowerCase().includes('arduino-cli');
     return { cliInstalled: isCliAvailable, boards: SUPPORTED_BOARDS };
   } catch (_err) {

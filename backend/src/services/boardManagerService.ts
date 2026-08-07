@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { ARDUINO_CLI } from './arduinoCompiler.js';
 
 const execAsync = promisify(exec);
 
@@ -49,7 +50,7 @@ export class BoardManagerService {
 
     // 1. Primary Method: Try arduino-cli board list --json
     try {
-      const { stdout } = await execAsync('arduino-cli board list --json');
+      const { stdout } = await execAsync(`"${ARDUINO_CLI}" board list --json`);
       const parsed = JSON.parse(stdout);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
