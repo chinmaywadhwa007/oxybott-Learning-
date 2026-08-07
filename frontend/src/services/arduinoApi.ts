@@ -47,10 +47,7 @@ export interface UploadResponse {
   error?: string;
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL}/arduino`
-    : 'https://oxybott-learning.onrender.com/api/arduino';
+const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/arduino`;
 
 export async function fetchBoards(): Promise<BoardProfile[]> {
   try {

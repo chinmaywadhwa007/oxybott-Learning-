@@ -95,3 +95,20 @@ input:-webkit-autofill:active {
   fill-opacity: 0.95 !important;
 }
 
+/* Invalid Blockly Block Highlighting */
+.blockly-invalid-block path.blocklyPath {
+  stroke: #EF4444 !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) !important;
+  animation: pulse-red-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-red-border {
+  0%, 100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.4;
+  }
+}
+

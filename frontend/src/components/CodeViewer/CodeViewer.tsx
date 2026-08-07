@@ -167,38 +167,38 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
       </div>
 
       {/* 3. Bottom Resource Usage Metrics Cards */}
-      <div className="bg-[#0E1726] border-t border-white/[0.08] p-2.5 shrink-0">
-        <div className="grid grid-cols-3 gap-2">
+      <div className="bg-[#0E1726] border-t border-white/[0.08] p-2 shrink-0">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {/* Card 1: Lines */}
-          <div className="p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-              <AlignLeft className="w-3.5 h-3.5" />
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+              <AlignLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lines</div>
-              <div className="text-xs font-black text-white font-mono">{lineCount}</div>
+            <div className="min-w-0">
+              <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">Lines</div>
+              <div className="text-[11px] sm:text-xs font-black text-white font-mono truncate">{lineCount}</div>
             </div>
           </div>
 
           {/* Card 2: Flash Usage */}
-          <div className="p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
-              <HardDrive className="w-3.5 h-3.5" />
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+              <HardDrive className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Flash</div>
-              <div className="text-xs font-black text-white font-mono">{flashBytes} B</div>
+            <div className="min-w-0">
+              <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">Flash</div>
+              <div className="text-[11px] sm:text-xs font-black text-white font-mono truncate">{flashBytes} B</div>
             </div>
           </div>
 
           {/* Card 3: SRAM Usage */}
-          <div className="p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-              <Cpu className="w-3.5 h-3.5" />
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <Cpu className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SRAM</div>
-              <div className="text-xs font-black text-white font-mono">{sramBytes} B</div>
+            <div className="min-w-0">
+              <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">SRAM</div>
+              <div className="text-[11px] sm:text-xs font-black text-white font-mono truncate">{sramBytes} B</div>
             </div>
           </div>
         </div>

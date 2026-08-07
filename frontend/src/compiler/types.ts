@@ -60,7 +60,11 @@ export interface BlockCompilerPlugin {
 
 export interface CompilerResult {
   code: string;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
   problems: ValidationProblem[];
+  invalidBlockIds: string[];
   ast: ProgramAST;
   compileTimeMs: number;
 }

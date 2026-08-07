@@ -14,6 +14,7 @@ import { ProjectExplorer } from '../components/ProjectExplorer/ProjectExplorer';
 import { ImportExportModal } from '../components/ImportExportModal/ImportExportModal';
 import { LibraryManagerModal } from '../components/LibraryManagerModal/LibraryManagerModal';
 import { fetchBoards, fetchPorts, requestCompile, requestUpload, BoardProfile, SerialPortInfo } from '../services/arduinoApi';
+import { compileWorkspaceWithValidation } from '../generators/arduinoGenerator';
 import { useProjectStore } from '../projects/projectStore';
 
 export const BlocklyPage: React.FC = () => {
@@ -155,14 +156,36 @@ export const BlocklyPage: React.FC = () => {
   };
 
   const handleCompile = async () => {
+    setActiveConsoleTab('compile');
+
+    const workspace = workspaceRef.current?.getWorkspace();
+    if (!workspace) return;
+
+    // 1. Run Workspace Validation
+    const valResult = compileWorkspaceWithValidation(workspace);
+
+    if (!valResult.valid || valResult.errors.length > 0) {
+      const errorLogs = [
+        '==================================',
+        'Blockly Validation Failed',
+        '==================================',
+        '',
+        ...valResult.errors.map((err) => `❌ ${err}`),
+        '',
+        'Compilation cancelled.',
+        'Please fix the highlighted blocks.',
+      ];
+
+      setConsoleLogs((prev) => [...prev, ...errorLogs]);
+      return; // STOP! Do not call backend API or Arduino CLI!
+    }
+
     if (!code || code.trim() === '') {
       setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚠️ Cannot compile: Blockly workspace is empty. Add blocks to generate code.`]);
-      setActiveConsoleTab('compile');
       return;
     }
 
     setIsCompiling(true);
-    setActiveConsoleTab('compile');
     setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚡ Starting compilation for [${selectedBoardFqbn}]...`]);
 
     console.log('[COMPILER PIPELINE] 4. Code passed to compiler API:\n', code);
@@ -200,14 +223,36 @@ export const BlocklyPage: React.FC = () => {
   };
 
   const handleUpload = async () => {
+    setActiveConsoleTab('upload');
+
+    const workspace = workspaceRef.current?.getWorkspace();
+    if (!workspace) return;
+
+    // 1. Run Workspace Validation
+    const valResult = compileWorkspaceWithValidation(workspace);
+
+    if (!valResult.valid || valResult.errors.length > 0) {
+      const errorLogs = [
+        '==================================',
+        'Blockly Validation Failed',
+        '==================================',
+        '',
+        ...valResult.errors.map((err) => `❌ ${err}`),
+        '',
+        'Upload cancelled.',
+        'Please fix the highlighted blocks.',
+      ];
+
+      setConsoleLogs((prev) => [...prev, ...errorLogs]);
+      return; // STOP! Do not call backend API or Arduino CLI!
+    }
+
     if (!code || code.trim() === '') {
       setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚠️ Cannot upload: Blockly workspace is empty. Add blocks to generate code.`]);
-      setActiveConsoleTab('upload');
       return;
     }
 
     setIsUploading(true);
-    setActiveConsoleTab('upload');
     setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] 🚀 Flashing target [${selectedBoardFqbn}] on ${selectedPort}...`]);
 
     console.log('[COMPILER PIPELINE] 4. Code passed to compiler API:\n', code);
@@ -301,6 +346,22 @@ export const BlocklyPage: React.FC = () => {
     window.addEventListener('mouseup', onMouseUp);
   };
 
+  // Mobile responsiveness detector
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMob = window.innerWidth < 1024;
+      setIsMobileScreen(isMob);
+      if (isMob && viewMode === 'split') {
+        setViewMode('blocks');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const selectedBoardObj = boards.find((b) => b.fqbn === selectedBoardFqbn);
   const currentBoardName = selectedBoardObj ? selectedBoardObj.name : 'Arduino Uno';
   const activePortObj = ports.find((p) => p.port === selectedPort);
@@ -341,8 +402,8 @@ export const BlocklyPage: React.FC = () => {
 
       {/* 2. MAIN THREE-PANEL IDE LAYOUT */}
       <div className="flex-1 flex overflow-hidden relative z-10">
-        {/* LEFT PANEL: Toolbox Sidebar & Bottom Board Status Card */}
-        {(viewMode === 'split' || viewMode === 'blocks') && (
+        {/* LEFT PANEL: Toolbox Sidebar & Bottom Board Status Card (Desktop/Tablet) */}
+        {!isMobileScreen && (viewMode === 'split' || viewMode === 'blocks') && (
           <>
             <div
               style={{ width: isSidebarCollapsed ? 64 : leftWidth }}
@@ -381,7 +442,33 @@ export const BlocklyPage: React.FC = () => {
           </>
         )}
 
-        {/* CENTER PANEL: Blockly Workspace Canvas (PRIMARY FOCUS) */}
+        {/* MOBILE SLIDE-OVER TOOLBOX DRAWER */}
+        {isMobileScreen && activeCategory === 'mobile_toolbox_open' && (
+          <div className="absolute inset-0 z-30 bg-[#0B132B] flex flex-col">
+            <div className="h-10 px-4 bg-[#0E1726] border-b border-[#1E293B] flex items-center justify-between">
+              <span className="font-bold text-xs text-white">Block Categories</span>
+              <button
+                onClick={() => setActiveCategory(null)}
+                className="text-xs font-bold text-[#38BDF8]"
+              >
+                Close ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              <ToolboxSidebar
+                activeCategory={activeCategory}
+                onSelectCategory={(cat) => {
+                  handleSelectCategory(cat);
+                  setActiveCategory(null);
+                }}
+                isCollapsed={false}
+                onToggleCollapse={() => {}}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* CENTER PANEL: Blockly Workspace Canvas */}
         {(viewMode === 'split' || viewMode === 'blocks') && (
           <div className="flex-1 h-full relative overflow-hidden bg-[#070D18]">
             <BlocklyWorkspace
@@ -398,7 +485,7 @@ export const BlocklyPage: React.FC = () => {
         {(viewMode === 'split' || viewMode === 'code') && (
           <>
             {/* Right Resizable Splitter */}
-            {viewMode === 'split' && (
+            {!isMobileScreen && viewMode === 'split' && (
               <div
                 onMouseDown={handleRightMouseDown}
                 className="w-1 h-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-col-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
@@ -424,43 +511,87 @@ export const BlocklyPage: React.FC = () => {
           </>
         )}
 
-        {/* RIGHT COLLAPSIBLE VIRTUAL HARDWARE SIMULATOR */}
+        {/* VIRTUAL HARDWARE SIMULATOR */}
         {isSimulatorOpen && (
-          <div className="w-[380px] h-full border-l border-[#1E293B]/60 shadow-2xl z-20 shrink-0 bg-[#070D18]">
+          <div className="fixed inset-0 lg:static lg:inset-auto lg:w-[380px] h-full border-l border-[#1E293B]/60 shadow-2xl z-40 shrink-0 bg-[#070D18]">
             <VirtualArduino code={code} onClose={() => setIsSimulatorOpen(false)} />
           </div>
         )}
       </div>
 
       {/* 3. BOTTOM TERMINAL CONSOLE PANEL */}
-      <div style={{ height: isConsoleCollapsed ? 36 : bottomHeight }} className="shrink-0 relative z-10 flex flex-col bg-[#0B132B] border-t border-[#1E293B]/60">
-        {/* Bottom Resizable Splitter */}
-        {!isConsoleCollapsed && (
-          <div
-            onMouseDown={handleBottomMouseDown}
-            className="h-1 w-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-row-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
-            title="Drag to resize Bottom Panel"
-          >
-            <div className="h-0.5 w-8 bg-slate-600/40 group-hover:bg-[#38BDF8] rounded-full" />
-          </div>
-        )}
+      {!isMobileScreen && (
+        <div style={{ height: isConsoleCollapsed ? 36 : bottomHeight }} className="shrink-0 relative z-10 flex flex-col bg-[#0B132B] border-t border-[#1E293B]/60">
+          {!isConsoleCollapsed && (
+            <div
+              onMouseDown={handleBottomMouseDown}
+              className="h-1 w-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-row-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
+              title="Drag to resize Bottom Panel"
+            >
+              <div className="h-0.5 w-8 bg-slate-600/40 group-hover:bg-[#38BDF8] rounded-full" />
+            </div>
+          )}
 
-        {activeConsoleTab === 'serial' ? (
-          <div className="flex-1 border-t border-white/[0.08] bg-[#090E17] relative z-10 overflow-hidden">
-            <SerialMonitor />
-          </div>
-        ) : (
-          <ConsoleLog
-            logs={consoleLogs}
-            problems={validationProblems}
-            activeTab={activeConsoleTab}
-            onSelectTab={setActiveConsoleTab}
-            onClearLogs={() => setConsoleLogs([])}
-            isCollapsed={isConsoleCollapsed}
-            onToggleCollapse={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
-          />
-        )}
-      </div>
+          {activeConsoleTab === 'serial' ? (
+            <div className="flex-1 border-t border-white/[0.08] bg-[#090E17] relative z-10 overflow-hidden">
+              <SerialMonitor />
+            </div>
+          ) : (
+            <ConsoleLog
+              logs={consoleLogs}
+              problems={validationProblems}
+              activeTab={activeConsoleTab}
+              onSelectTab={setActiveConsoleTab}
+              onClearLogs={() => setConsoleLogs([])}
+              isCollapsed={isConsoleCollapsed}
+              onToggleCollapse={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
+            />
+          )}
+        </div>
+      )}
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {isMobileScreen && (
+        <div className="h-12 bg-[#090F1D] border-t border-[#1E293B] flex items-center justify-around px-2 z-20 shrink-0 select-none">
+          <button
+            onClick={() => setViewMode('blocks')}
+            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+              viewMode === 'blocks' ? 'text-[#38BDF8] bg-white/5' : 'text-slate-400'
+            }`}
+          >
+            <span className="text-sm">🧩</span>
+            <span>Blocks</span>
+          </button>
+
+          <button
+            onClick={() => setActiveCategory('mobile_toolbox_open')}
+            className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white"
+          >
+            <span className="text-sm">🧰</span>
+            <span>Toolbox</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('code')}
+            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+              viewMode === 'code' ? 'text-[#38BDF8] bg-white/5' : 'text-slate-400'
+            }`}
+          >
+            <span className="text-sm">💻</span>
+            <span>Code</span>
+          </button>
+
+          <button
+            onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
+            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+              isSimulatorOpen ? 'text-purple-400 bg-purple-500/10' : 'text-slate-400'
+            }`}
+          >
+            <span className="text-sm">⚡</span>
+            <span>Simulate</span>
+          </button>
+        </div>
+      )}
 
       {/* COMMAND PALETTE OVERLAY (Ctrl+K) */}
       <CommandPaletteModal
@@ -505,3 +636,4 @@ export const BlocklyPage: React.FC = () => {
     </div>
   );
 };
+

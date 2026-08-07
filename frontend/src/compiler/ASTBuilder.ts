@@ -97,13 +97,14 @@ export class ASTBuilder {
           statements.push(node);
         }
       } else {
-        // Generic fallback for unhandled statement blocks
-        statements.push({
-          id: `node_gen_${curr.id}`,
-          kind: 'statement',
-          type: curr.type,
+        // Record error for unhandled block instead of generating comment snippets
+        ctx.problems.push({
+          id: `unsupported_${curr.id}`,
+          severity: 'error',
           blockId: curr.id,
-          codeSnippet: `// Unhandled statement block: ${curr.type}`,
+          blockType: curr.type,
+          message: `Unsupported block: ${curr.type}`,
+          suggestion: 'Remove or replace this block with a supported Arduino hardware block.',
         });
       }
 

@@ -5,6 +5,8 @@ import { timingPlugins } from './plugins/timingPlugins';
 import { serialPlugins } from './plugins/serialPlugins';
 import { displayPlugins } from './plugins/displayPlugins';
 import { peripheralPlugins } from './plugins/peripheralPlugins';
+import { logicPlugins } from './plugins/logicPlugins';
+import { mathPlugins } from './plugins/mathPlugins';
 import { ASTBuilder } from './ASTBuilder';
 import { ValidationEngine } from './ValidationEngine';
 import { ArduinoCodeGenerator } from './ArduinoCodeGenerator';
@@ -18,6 +20,8 @@ compilerRegistry.registerAll([
   ...serialPlugins,
   ...displayPlugins,
   ...peripheralPlugins,
+  ...logicPlugins,
+  ...mathPlugins,
 ]);
 
 export class OxybottCompilerPipeline {
@@ -27,35 +31,60 @@ export class OxybottCompilerPipeline {
     // 1. Build AST & run block-level validations
     const { ast, problems: astProblems } = ASTBuilder.buildAST(workspace);
 
-    // PIPELINE LOG STAGE 2: Generated AST
-    console.log('[COMPILER PIPELINE] 2. Generated AST:', {
-      rawBlocksCount: ast.rawBlocksCount,
-      hasSetupBlock: ast.hasSetupBlock,
-      hasLoopBlock: ast.hasLoopBlock,
-      includes: Array.from(ast.includes),
-      globals: Array.from(ast.globals.entries()),
-      pinModes: Array.from(ast.pinModes.entries()),
-      setupStatementsCount: ast.setupStatements.length,
-      loopStatementsCount: ast.loopStatements.length,
-    });
-
-    // 2. Perform static analysis validations
+    // 2. Perform static analysis validations & canvas block highlights
     const problems = ValidationEngine.validate(workspace, ast, astProblems);
 
-    // 3. Generate raw code from AST
-    const rawCode = ArduinoCodeGenerator.generate(ast);
+    // Filter errors vs warnings
+    const errors = Array.from(
+      new Set(
+        problems
+          .filter((p) => p.severity === 'error')
+          .map((p) => p.message)
+      )
+    );
 
-    // 4. Format code
-    const formattedCode = Formatter.format(rawCode);
+    const warnings = Array.from(
+      new Set(
+        problems
+          .filter((p) => p.severity === 'warning')
+          .map((p) => p.message)
+      )
+    );
 
-    // PIPELINE LOG STAGE 3: Generated Arduino Code
-    console.log('[COMPILER PIPELINE] 3. Generated Arduino Code:\n', formattedCode || '(Empty Code)');
+    const invalidBlockIds = Array.from(
+      new Set(
+        problems
+          .filter((p) => p.severity === 'error' && p.blockId)
+          .map((p) => p.blockId!)
+      )
+    );
+
+    const isValid = errors.length === 0;
+
+    let formattedCode = '';
+
+    if (isValid) {
+      // 3. Generate raw code from AST
+      const rawCode = ArduinoCodeGenerator.generate(ast);
+
+      // 4. Format code
+      formattedCode = Formatter.format(rawCode);
+
+      // PIPELINE LOG STAGE 3: Generated Arduino Code
+      console.log('[COMPILER PIPELINE] 3. Generated Arduino Code:\n', formattedCode || '(Empty Code)');
+    } else {
+      console.warn('[COMPILER PIPELINE] Validation failed with errors:', errors);
+    }
 
     const endTime = performance.now();
 
     return {
       code: formattedCode,
+      valid: isValid,
+      errors,
+      warnings,
       problems,
+      invalidBlockIds,
       ast,
       compileTimeMs: Math.round(endTime - startTime),
     };

@@ -28,10 +28,7 @@ interface LibraryManagerModalProps {
   onClose: () => void;
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL}/arduino`
-    : 'https://oxybott-learning.onrender.com/api/arduino';
+const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/arduino`;
 
 export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'search' | 'installed'>('search');

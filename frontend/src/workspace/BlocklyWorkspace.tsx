@@ -26,6 +26,7 @@ export interface BlocklyWorkspaceRef {
   fitToScreen: () => void;
   clearWorkspace: () => void;
   resize: () => void;
+  getWorkspace: () => Blockly.WorkspaceSvg | null;
 }
 
 interface BlocklyWorkspaceProps {
@@ -49,6 +50,7 @@ export const BlocklyWorkspace = forwardRef<BlocklyWorkspaceRef, BlocklyWorkspace
     const draggedBlockIdRef = useRef<string | null>(null); // block ID, not JS object
 
     useImperativeHandle(ref, () => ({
+      getWorkspace: () => workspaceRef.current,
       selectCategory: (categoryName: string) => {
         if (workspaceRef.current) {
           const toolbox = workspaceRef.current.getToolbox();
@@ -143,9 +145,22 @@ export const BlocklyWorkspace = forwardRef<BlocklyWorkspaceRef, BlocklyWorkspace
         updateWorkspace(initialJsonState, initialResult.code);
         setActiveHints(getActiveHints(initialResult.code));
 
-        // Add change listener for real-time C++ generation & auto-save
+        const runWorkspaceValidation = () => {
+          const jsonState = Blockly.serialization.workspaces.save(workspace);
+          const result = compileWorkspaceWithValidation(workspace);
+
+          onCodeChange(result.code);
+          if (onValidationProblems) {
+            onValidationProblems(result.problems);
+          }
+
+          updateWorkspace(jsonState, result.code);
+          setActiveHints(getActiveHints(result.code));
+        };
+
+        // Add change listener for real-time C++ generation, validation & auto-save
         workspace.addChangeListener((event) => {
-          // Track block drag start/end for trash zone visibility
+          // Track block drag start/end for trash zone visibility & post-drag validation
           if (event.type === Blockly.Events.BLOCK_DRAG) {
             const dragEvent = event as Blockly.Events.BlockDrag;
             const starting = dragEvent.isStart ?? false;
@@ -156,8 +171,7 @@ export const BlocklyWorkspace = forwardRef<BlocklyWorkspaceRef, BlocklyWorkspace
               isDraggingRef.current = true;
               setIsDragging(true);
             } else {
-              // Drag ended — Blockly has already placed the block back on canvas.
-              // NOW check if cursor was over the trash zone and delete if so.
+              // Drag ended — Blockly has placed the block on canvas.
               const blockId = draggedBlockIdRef.current;
               const shouldDelete = isOverTrashRef.current && !!blockId;
 
@@ -168,30 +182,32 @@ export const BlocklyWorkspace = forwardRef<BlocklyWorkspaceRef, BlocklyWorkspace
               draggedBlockIdRef.current = null;
 
               if (shouldDelete && blockId) {
-                // Small delay so Blockly fully commits the block before we dispose
                 setTimeout(() => {
                   const block = workspace.getBlockById(blockId);
                   if (block) {
                     try { block.dispose(false); } catch (_) {}
                   }
+                  runWorkspaceValidation();
                 }, 20);
+              } else {
+                // Drag ended! Re-validate immediately after block drop
+                setTimeout(runWorkspaceValidation, 20);
               }
             }
           }
 
-          if (event.isUiEvent) return;
-
-          const jsonState = Blockly.serialization.workspaces.save(workspace);
-          console.log('[COMPILER PIPELINE] 1. Workspace JSON (Change):', jsonState);
-
-          const result = compileWorkspaceWithValidation(workspace);
-          onCodeChange(result.code);
-          if (onValidationProblems) {
-            onValidationProblems(result.problems);
+          // Trigger validation on block creation, movement, edit, deletion, or variable changes
+          if (
+            event.type === Blockly.Events.BLOCK_CREATE ||
+            event.type === Blockly.Events.BLOCK_MOVE ||
+            event.type === Blockly.Events.BLOCK_CHANGE ||
+            event.type === Blockly.Events.BLOCK_DELETE ||
+            event.type === Blockly.Events.VAR_CREATE ||
+            event.type === Blockly.Events.VAR_DELETE ||
+            event.type === Blockly.Events.VAR_RENAME
+          ) {
+            setTimeout(runWorkspaceValidation, 20);
           }
-
-          updateWorkspace(jsonState, result.code);
-          setActiveHints(getActiveHints(result.code));
         });
 
         // Document-level mousemove: track if cursor is over trash zone while dragging

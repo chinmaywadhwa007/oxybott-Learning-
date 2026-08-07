@@ -13,7 +13,19 @@ const PORT = process.env.PORT || 5000;
 // CORS Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, cURL, Postman)
+      if (!origin) return callback(null, true);
+      // Allow localhost frontend origins and configured FRONTEND_URL
+      if (
+        origin.startsWith('http://localhost') ||
+        origin.startsWith('http://127.0.0.1') ||
+        origin === process.env.FRONTEND_URL
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
