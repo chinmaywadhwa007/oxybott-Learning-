@@ -74,7 +74,7 @@ export const BlocklyPage: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const prevPortsCountRef = useRef<number>(-1);
+  const prevVerifiedPortsRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     loadBoardsAndPorts();
@@ -115,19 +115,33 @@ export const BlocklyPage: React.FC = () => {
       }
     };
 
+    const handleUsbChange = () => {
+      loadBoardsAndPorts();
+    };
+
     window.addEventListener('keydown', handleGlobalKeyDown);
     window.addEventListener('dragover', handleWindowDragOver);
     window.addEventListener('drop', handleWindowDrop);
 
-    // Hardware detection polling every 2.5 seconds (2500ms)
+    // Listen to instant USB Serial hardware connect/disconnect events from OS
+    if (typeof navigator !== 'undefined' && 'serial' in navigator) {
+      (navigator as any).serial?.addEventListener('connect', handleUsbChange);
+      (navigator as any).serial?.addEventListener('disconnect', handleUsbChange);
+    }
+
+    // Fast hardware detection polling every 1.5 seconds (1500ms)
     const hardwareInterval = setInterval(() => {
       loadBoardsAndPorts();
-    }, 2500);
+    }, 1500);
 
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
       window.removeEventListener('dragover', handleWindowDragOver);
       window.removeEventListener('drop', handleWindowDrop);
+      if (typeof navigator !== 'undefined' && 'serial' in navigator) {
+        (navigator as any).serial?.removeEventListener('connect', handleUsbChange);
+        (navigator as any).serial?.removeEventListener('disconnect', handleUsbChange);
+      }
       clearInterval(hardwareInterval);
     };
   }, []);
@@ -138,6 +152,7 @@ export const BlocklyPage: React.FC = () => {
 
     if (!health.isAgentRunning) {
       setPorts([]);
+      prevVerifiedPortsRef.current = null;
       return;
     }
 
@@ -151,28 +166,45 @@ export const BlocklyPage: React.FC = () => {
       (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
     );
 
-    const isInitialLoad = prevPortsCountRef.current === -1;
+    const currentPortNames = verifiedPorts.map((p) => p.port);
+    const isInitialLoad = prevVerifiedPortsRef.current === null;
 
-    // Detect Hardware Connection / Disconnection events
-    if (!isInitialLoad && prevPortsCountRef.current === 0 && verifiedPorts.length > 0) {
-      const activeP = verifiedPorts[0];
-      addToast(
-        `${activeP.boardName || 'Arduino'} Connected`,
-        `Connected on ${activeP.port} ready for programming.`,
-        'success'
-      );
-      setConsoleLogs((prev) => [
-        ...prev,
-        `[${new Date().toLocaleTimeString()}] 🟢 [Hardware Connect] ${activeP.boardName || 'Arduino'} connected on ${activeP.port}.`,
-      ]);
-    } else if (!isInitialLoad && prevPortsCountRef.current > 0 && verifiedPorts.length === 0) {
-      addToast('Arduino Disconnected', 'Please reconnect your board and try again.', 'error');
-      setConsoleLogs((prev) => [
-        ...prev,
-        `[${new Date().toLocaleTimeString()}] 🔴 [Hardware Disconnect] Arduino board unplugged/disconnected from USB port.`,
-      ]);
+    if (!isInitialLoad) {
+      const prevPorts = prevVerifiedPortsRef.current || [];
+
+      // 1. Detect newly plugged-in hardware boards
+      for (const p of verifiedPorts) {
+        if (!prevPorts.includes(p.port)) {
+          addToast(
+            `${p.boardName || 'Arduino'} Connected`,
+            `Connected on ${p.port} and ready for programming.`,
+            'success',
+            4000
+          );
+          setConsoleLogs((prev) => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] 🟢 [Hardware Connect] ${p.boardName || 'Arduino'} connected on ${p.port}.`,
+          ]);
+        }
+      }
+
+      // 2. Detect unplugged/disconnected hardware boards
+      for (const oldPort of prevPorts) {
+        if (!currentPortNames.includes(oldPort)) {
+          addToast(
+            'Arduino Disconnected',
+            `Board unplugged/disconnected from ${oldPort}.`,
+            'error',
+            4000
+          );
+          setConsoleLogs((prev) => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] 🔴 [Hardware Disconnect] Arduino board unplugged/disconnected from ${oldPort}.`,
+          ]);
+        }
+      }
     }
-    prevPortsCountRef.current = verifiedPorts.length;
+    prevVerifiedPortsRef.current = currentPortNames;
 
     // Automatically set active board and port if verified physical hardware is detected
     if (verifiedPorts.length > 0) {

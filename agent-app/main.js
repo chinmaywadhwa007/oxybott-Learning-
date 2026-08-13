@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const AGENT_PORT = 8765;
+const VISUAL_PROGRAMMER_URL = 'https://oxybott-learning.vercel.app/visual-programmer';
 let tray = null;
 
 // Ensure log directory exists
@@ -57,6 +58,15 @@ function startAgentServer() {
   }
 }
 
+// Open Visual Programmer web app in default browser
+function openWebUI() {
+  try {
+    shell.openExternal(VISUAL_PROGRAMMER_URL);
+  } catch (err) {
+    log('Failed to open web UI:', err);
+  }
+}
+
 // Create System Tray Menu
 function createTray() {
   const iconPath = path.join(__dirname, 'resources', 'icon.png');
@@ -71,6 +81,14 @@ function createTray() {
 
   tray.setToolTip('Oxybott Local Arduino Agent (http://127.0.0.1:8765)');
 
+  // Click or double-click on tray icon opens Visual Programmer in browser
+  tray.on('click', () => {
+    openWebUI();
+  });
+  tray.on('double-click', () => {
+    openWebUI();
+  });
+
   const updateMenu = () => {
     let isAutoStart = false;
     try {
@@ -84,7 +102,7 @@ function createTray() {
       {
         label: '🌐 Open Visual Programmer',
         click: () => {
-          shell.openExternal('https://oxybott-learning.vercel.app/visual-programmer');
+          openWebUI();
         },
       },
       {
@@ -132,12 +150,13 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    log('Second instance attempt detected.');
+    log('Second instance attempt detected. Opening web interface in browser.');
+    openWebUI();
     if (tray && tray.displayBalloon) {
       try {
         tray.displayBalloon({
           title: 'Oxybott Agent Active',
-          content: 'Oxybott Local Arduino Agent is active in system tray.',
+          content: 'Oxybott Local Arduino Agent is active. Opening Visual Programmer in browser...',
         });
       } catch (_) {}
     }
@@ -157,6 +176,7 @@ if (!gotTheLock) {
 
     startAgentServer();
     createTray();
+    openWebUI(); // Automatically launch Visual Programmer in user's default browser
 
     log('✅ Oxybott Agent application initialized and running in system tray.');
   });
