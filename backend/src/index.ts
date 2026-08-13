@@ -34,8 +34,15 @@ app.use(
 app.use(express.json());
 
 // Healthcheck
+// Healthcheck
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), app: 'Oxybott Backend' });
+  console.log('🔥 PUBLIC HEALTH ENDPOINT HIT');
+
+  res.status(200).json({
+    status: 'ok',
+    message: 'OXYBOTT PRODUCTION BACKEND IS WORKING',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Routes
