@@ -11,7 +11,7 @@ const AGENT_PORT = process.env.AGENT_PORT || 8765;
 // CORS allowing all origins so web applications deployed on Vercel or localhost can connect to http://127.0.0.1:8765
 app.use(
   cors({
-    origin: (origin, callback) => {
+    origin: (_origin, callback) => {
       // Allow all origins (Vercel, localhost, etc.)
       return callback(null, true);
     },
@@ -163,10 +163,18 @@ process.on('uncaughtException', (err) => {
 });
 
 // Start Local Express Agent Server
-app.listen(AGENT_PORT, () => {
+const server = app.listen(AGENT_PORT, () => {
   console.log(`\n=============================================================`);
   console.log(`⚡ [OXYBOTT LOCAL ARDUINO AGENT] Running on http://127.0.0.1:${AGENT_PORT}`);
   console.log(`👉 Agent Healthcheck: http://127.0.0.1:${AGENT_PORT}/health`);
   console.log(`👉 Hardware Ports: http://127.0.0.1:${AGENT_PORT}/ports`);
   console.log(`=============================================================\n`);
+});
+
+server.on('error', (err: any) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`⚠️ [OXYBOTT LOCAL AGENT]: Port ${AGENT_PORT} is already bound by an active agent process.`);
+  } else {
+    console.error('❌ [OXYBOTT LOCAL AGENT SERVER ERROR]:', err);
+  }
 });

@@ -24,6 +24,15 @@ log(`Starting Oxybott Agent v${app.getVersion()}`);
 log(`Exec Path: ${process.execPath}`);
 log(`Resources Path: ${process.resourcesPath}`);
 
+// Process resilience - catch unhandled errors in Electron main process
+process.on('uncaughtException', (err) => {
+  log('Uncaught Exception in Main Process:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log('Unhandled Rejection in Main Process:', reason);
+});
+
 // Load the compiled agent server bundle
 function startAgentServer() {
   try {
@@ -36,20 +45,22 @@ function startAgentServer() {
     }
 
     require(serverPath);
-    log(`Express Agent listening on http://127.0.0.1:${AGENT_PORT}`);
+    log(`Express Agent module initialized for http://127.0.0.1:${AGENT_PORT}`);
   } catch (err) {
     log('FATAL: Failed to start embedded agent server:', err);
-    dialog.showErrorBox(
-      'Oxybott Agent Error',
-      `Failed to start Oxybott Local Agent server:\n${err.message}\n\nCheck logs at:\n${logFile}`
-    );
+    try {
+      dialog.showErrorBox(
+        'Oxybott Agent Error',
+        `Failed to start Oxybott Local Agent server:\n${err.message}\n\nCheck logs at:\n${logFile}`
+      );
+    } catch (_) {}
   }
 }
 
 // Create System Tray Menu
 function createTray() {
   const iconPath = path.join(__dirname, 'resources', 'icon.png');
-  
+
   try {
     tray = new Tray(iconPath);
   } catch (_) {
@@ -73,7 +84,7 @@ function createTray() {
       {
         label: '🌐 Open Visual Programmer',
         click: () => {
-          shell.openExternal('http://localhost:5173');
+          shell.openExternal('https://oxybott-learning.vercel.app/visual-programmer');
         },
       },
       {
@@ -88,10 +99,13 @@ function createTray() {
         type: 'checkbox',
         checked: isAutoStart,
         click: (menuItem) => {
-          app.setLoginItemSettings({
-            openAtLogin: menuItem.checked,
-            path: process.execPath,
-          });
+          try {
+            app.setLoginItemSettings({
+              openAtLogin: menuItem.checked,
+              openAsHidden: true,
+              path: process.execPath,
+            });
+          } catch (_) {}
           updateMenu();
         },
       },
@@ -114,26 +128,29 @@ function createTray() {
 // Prevent multiple instances of the agent
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
-  log('Another instance of Oxybott Agent is already running. Exiting.');
+  log('Another instance of Oxybott Agent is already running in background. Exiting duplicate process.');
   app.quit();
 } else {
   app.on('second-instance', () => {
     log('Second instance attempt detected.');
-    if (tray) {
-      tray.displayBalloon({
-        title: 'Oxybott Agent Active',
-        content: 'Oxybott Local Agent is already running in the system tray.',
-      });
+    if (tray && tray.displayBalloon) {
+      try {
+        tray.displayBalloon({
+          title: 'Oxybott Agent Active',
+          content: 'Oxybott Local Arduino Agent is active in system tray.',
+        });
+      } catch (_) {}
     }
   });
 
   app.whenReady().then(() => {
     if (app.dock) app.dock.hide();
 
-    // Ensure agent automatically runs on Windows boot
+    // Ensure agent automatically runs on Windows boot headlessly
     try {
       app.setLoginItemSettings({
         openAtLogin: true,
+        openAsHidden: true,
         path: process.execPath,
       });
     } catch (_) {}
@@ -145,6 +162,7 @@ if (!gotTheLock) {
   });
 }
 
-app.on('window-all-closed', (e) => {
-  e.preventDefault(); // Keep agent active in system tray
+// Keep agent running headlessly in system tray when all windows close
+app.on('window-all-closed', () => {
+  // Intentionally blank: keep background agent active in system tray without crashing
 });
