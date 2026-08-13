@@ -58,13 +58,22 @@ const KNOWN_VID_PID_DB: Record<string, { boardName: string; vendor: string; chip
 
 export class BoardManagerService {
   /**
-   * Scans system hardware using `arduino-cli board list --json`.
-   * Returns ONLY actual verified detected Arduino / microcontroller boards.
-   * DOES NOT fabricate fake boards or report unverified Windows COM ports as Arduino.
+   * Scans system hardware using Windows PnP DeviceID parsing and `arduino-cli board list --json`.
+   * Returns ONLY actual verified detected Arduino / microcontroller boards matching KNOWN_VID_PID_DB or CLI matching_boards.
+   * DOES NOT fabricate fake boards or report unverified generic Windows COM ports as Arduino.
    */
   public static async scanHardware(): Promise<DetectedHardwareDevice[]> {
     const devices: DetectedHardwareDevice[] = [];
 
+    // 1. Scan Windows PnP COM ports with exact VID:PID device matching
+    if (process.platform === 'win32') {
+      try {
+        const pnpDevices = await this.scanWindowsPnpSerialPorts();
+        devices.push(...pnpDevices);
+      } catch (_e) {}
+    }
+
+    // 2. Query arduino-cli board list --json for detected ports
     try {
       const { stdout } = await execAsync(`"${ARDUINO_CLI}" board list --json`, { timeout: 8000 });
       const parsed = JSON.parse(stdout);
@@ -82,7 +91,6 @@ export class BoardManagerService {
             const vidRaw = item.port.properties?.vid || item.port.hardware_id?.split(':')?.[0] || '';
             const pidRaw = item.port.properties?.pid || item.port.hardware_id?.split(':')?.[1] || '';
 
-            // Clean hex prefixes (0x2341 -> 2341)
             const vid = vidRaw.replace(/^0x/i, '').toUpperCase();
             const pid = pidRaw.replace(/^0x/i, '').toUpperCase();
             const vidPidKey = `${vid}:${pid}`;
@@ -90,24 +98,14 @@ export class BoardManagerService {
             const knownMeta = KNOWN_VID_PID_DB[vidPidKey];
             const matchedBoard = item.matching_boards?.[0];
 
-            // A device is a verified Arduino/microcontroller ONLY if:
-            // 1. arduino-cli identified a matching board, OR
-            // 2. The USB VID:PID matches a known microcontroller board in KNOWN_VID_PID_DB
             if (matchedBoard || knownMeta) {
               const boardName = matchedBoard?.name || knownMeta?.boardName || 'Arduino Board';
               const fqbn = matchedBoard?.fqbn || knownMeta?.fqbn || 'arduino:avr:uno';
               const vendor = knownMeta?.vendor || item.port.properties?.manufacturer || 'Arduino SA';
-              const chip =
-                knownMeta?.chip ||
-                (fqbn.includes('mega')
-                  ? 'ATmega2560'
-                  : fqbn.includes('nano')
-                  ? 'ATmega328P'
-                  : fqbn.includes('esp32')
-                  ? 'ESP32'
-                  : 'ATmega328P');
+              const chip = knownMeta?.chip || 'ATmega328P';
 
-              devices.push({
+              const existingIdx = devices.findIndex((d) => d.port === portName);
+              const deviceObj: DetectedHardwareDevice = {
                 boardName,
                 port: portName,
                 status: 'connected',
@@ -118,22 +116,73 @@ export class BoardManagerService {
                 fqbn,
                 label: `${portName} (${boardName})`,
                 isVerifiedArduino: true,
-              });
+              };
+
+              if (existingIdx >= 0) {
+                devices[existingIdx] = deviceObj;
+              } else {
+                devices.push(deviceObj);
+              }
             }
           }
         }
       }
-    } catch (_err) {
-      // CLI error or no boards connected — return empty list []
-    }
+    } catch (_err) {}
+
+    // Filter return list: ONLY return devices that are verified Arduino microcontrollers
+    const verifiedDevices = devices.filter((d) => d.isVerifiedArduino === true);
 
     // Deduplicate by port address
     const uniqueMap = new Map<string, DetectedHardwareDevice>();
-    for (const dev of devices) {
+    for (const dev of verifiedDevices) {
       if (!uniqueMap.has(dev.port)) {
         uniqueMap.set(dev.port, dev);
       }
     }
     return Array.from(uniqueMap.values());
+  }
+
+  /**
+   * Scans Windows PnP registry for COM ports with VID/PID parsing.
+   * Returns ONLY devices whose VID:PID matches KNOWN_VID_PID_DB.
+   */
+  private static async scanWindowsPnpSerialPorts(): Promise<DetectedHardwareDevice[]> {
+    const devices: DetectedHardwareDevice[] = [];
+    try {
+      const { stdout } = await execAsync('wmic path Win32_PnPEntity where "Caption like \'%COM%\'" get Caption, DeviceID /format:csv', { timeout: 8000 });
+      const lines = stdout.split('\n').filter(Boolean);
+
+      for (const line of lines) {
+        const comMatch = line.match(/(COM\d+)/i);
+        const vidPidMatch = line.match(/VID_([0-9A-F]{4})&PID_([0-9A-F]{4})/i);
+
+        if (comMatch && vidPidMatch) {
+          const port = comMatch[1].toUpperCase();
+          const vid = vidPidMatch[1].toUpperCase();
+          const pid = vidPidMatch[2].toUpperCase();
+          const key = `${vid}:${pid}`;
+
+          const known = KNOWN_VID_PID_DB[key];
+
+          // Include ONLY if VID:PID matches a recognized microcontroller in KNOWN_VID_PID_DB
+          if (known) {
+            devices.push({
+              boardName: known.boardName,
+              port,
+              status: 'connected',
+              chip: known.chip,
+              vendor: known.vendor,
+              vendorId: vid,
+              productId: pid,
+              fqbn: known.fqbn,
+              label: `${port} (${known.boardName})`,
+              isVerifiedArduino: true,
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    return devices;
   }
 }
