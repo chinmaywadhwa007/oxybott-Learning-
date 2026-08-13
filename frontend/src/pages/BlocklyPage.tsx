@@ -576,11 +576,12 @@ export const BlocklyPage: React.FC = () => {
 
   const selectedBoardObj = boards.find((b) => b.fqbn === selectedBoardFqbn);
   const currentBoardName = selectedBoardObj ? selectedBoardObj.name : 'Arduino Uno';
-  const activePortObj = ports.find((p) => p.port === selectedPort);
-  const verifiedPorts = ports.filter(
-    (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+
+  // Single Source of Truth: currently selected port MUST exist in ports and be verified
+  const selectedPortInfo = ports.find(
+    (p) => p.port === selectedPort && (p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth')))
   );
-  const isDeviceConnected = isAgentRunning && verifiedPorts.length > 0 && Boolean(selectedPort);
+  const isDeviceConnected = Boolean(isAgentRunning && selectedPort && selectedPortInfo);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#ffffff] overflow-hidden text-slate-800 font-sans relative">
@@ -610,7 +611,7 @@ export const BlocklyPage: React.FC = () => {
         onUndo={() => workspaceRef.current?.undo()}
         onRedo={() => workspaceRef.current?.redo()}
         onToggleExplorer={() => setIsExplorerOpen(!isExplorerOpen)}
-        onOpenImportExport={(tab) => {
+        onOpenImportExport={(tab?: 'import' | 'export') => {
           setImportExportTab(tab || 'export');
           setIsImportExportOpen(true);
         }}
@@ -635,13 +636,13 @@ export const BlocklyPage: React.FC = () => {
               />
               {!isSidebarCollapsed && (
                 <BoardStatusCard
-                  boardName={activePortObj?.boardName || currentBoardName}
-                  port={selectedPort}
+                  boardName={selectedPortInfo?.boardName || currentBoardName}
+                  port={selectedPortInfo?.port || selectedPort || 'No Port'}
                   isConnected={isDeviceConnected}
-                  chip={activePortObj?.chip}
-                  vendor={activePortObj?.vendor}
-                  vendorId={activePortObj?.vendorId}
-                  productId={activePortObj?.productId}
+                  chip={selectedPortInfo?.chip}
+                  vendor={selectedPortInfo?.vendor}
+                  vendorId={selectedPortInfo?.vendorId}
+                  productId={selectedPortInfo?.productId}
                   onOpenBoardInfo={() => setIsChallengeOpen(true)}
                 />
               )}
@@ -769,7 +770,7 @@ export const BlocklyPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${isDeviceConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-            <span>{isDeviceConnected ? `Connected (${selectedPort})` : 'Disconnected'}</span>
+            <span>{isDeviceConnected && selectedPortInfo ? `Connected (${selectedPortInfo.port})` : 'Disconnected'}</span>
           </span>
           <span>|</span>
           <span>Board: {currentBoardName}</span>

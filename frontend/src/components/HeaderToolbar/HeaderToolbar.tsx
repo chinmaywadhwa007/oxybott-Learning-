@@ -179,13 +179,12 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
               );
             }
 
-            const verifiedPorts = ports.filter(
-              (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+            const selectedPortInfo = ports.find(
+              (p) => p.port === selectedPort && (p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth')))
             );
-            const isDeviceConnected = verifiedPorts.length > 0;
-            const activePort = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[0] || ports[0];
-            const activeBoardName = activePort?.boardName || boards.find((b) => b.fqbn === selectedBoardFqbn)?.name || 'Arduino';
-            const connectedLabel = activePort ? `${activeBoardName} • ${activePort.port}` : `${activeBoardName}`;
+            const isDeviceConnected = Boolean(isAgentRunning && selectedPort && selectedPortInfo);
+            const activeBoardName = selectedPortInfo?.boardName || boards.find((b) => b.fqbn === selectedBoardFqbn)?.name || 'Arduino';
+            const connectedLabel = selectedPortInfo ? `${activeBoardName} • ${selectedPortInfo.port}` : `${activeBoardName}`;
 
             return (
               <div
@@ -194,7 +193,7 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
                     ? 'bg-emerald-500/25 border-emerald-300/40 text-emerald-100'
                     : 'bg-rose-500/25 border-rose-300/40 text-rose-100'
                 }`}
-                title={isDeviceConnected ? `Hardware Connected on ${activePort?.port}` : 'No Physical Arduino Device Detected'}
+                title={isDeviceConnected ? `Hardware Connected on ${selectedPortInfo?.port}` : 'No Physical Arduino Device Connected on Selected Port'}
               >
                 <span
                   className={`w-2.5 h-2.5 rounded-full shadow-sm shrink-0 ${
@@ -205,7 +204,7 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
                   {isDeviceConnected ? `🟢 ${connectedLabel}` : '🔴 No Arduino connected'}
                 </span>
                 <span className="sm:hidden font-bold">
-                  {isDeviceConnected ? `🟢 ${activePort?.port || 'On'}` : '🔴 No Board'}
+                  {isDeviceConnected ? `🟢 ${selectedPortInfo?.port || 'On'}` : '🔴 No Board'}
                 </span>
               </div>
             );
