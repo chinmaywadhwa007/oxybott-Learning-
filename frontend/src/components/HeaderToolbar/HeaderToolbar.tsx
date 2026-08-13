@@ -164,13 +164,13 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
 
         {/* GROUP 3: HARDWARE CONNECTION & MODES */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Status Indicator */}
+          {/* Interactive Port Selector Dropdown */}
           {(() => {
             if (!isAgentRunning) {
               return (
                 <div
                   className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-sm border transition-all bg-rose-500/25 border-rose-300/40 text-rose-100"
-                  title="Oxybott Arduino Agent is not running on your computer. Launch 'npm run agent' in terminal."
+                  title="Oxybott Arduino Agent is not running on your computer. Launch Oxybott Agent."
                 >
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shrink-0 animate-ping" />
                   <span className="hidden sm:inline font-bold">🔴 Oxybott Agent not running</span>
@@ -182,30 +182,42 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
             const selectedPortInfo = ports.find(
               (p) => p.port === selectedPort && (p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth')))
             );
-            const isDeviceConnected = Boolean(isAgentRunning && selectedPort && selectedPortInfo);
-            const activeBoardName = selectedPortInfo?.boardName || boards.find((b) => b.fqbn === selectedBoardFqbn)?.name || 'Arduino';
-            const connectedLabel = selectedPortInfo ? `${activeBoardName} • ${selectedPortInfo.port}` : `${activeBoardName}`;
+            const isDeviceConnected = Boolean(selectedPort && selectedPortInfo);
+
+            if (ports.length === 0) {
+              return (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-sm border transition-all bg-rose-500/25 border-rose-300/40 text-rose-100"
+                  title="No Physical Arduino Device Detected on USB Ports"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shrink-0" />
+                  <span className="hidden sm:inline font-bold">🔴 No Arduino connected</span>
+                  <span className="sm:hidden font-bold">🔴 No Board</span>
+                </div>
+              );
+            }
 
             return (
               <div
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-sm border transition-all ${
+                className={`h-8 flex items-center rounded-lg px-2 shadow-sm font-bold border transition-all ${
                   isDeviceConnected
-                    ? 'bg-emerald-500/25 border-emerald-300/40 text-emerald-100'
+                    ? 'bg-emerald-500/25 border-emerald-300/40 text-white'
                     : 'bg-rose-500/25 border-rose-300/40 text-rose-100'
                 }`}
-                title={isDeviceConnected ? `Hardware Connected on ${selectedPortInfo?.port}` : 'No Physical Arduino Device Connected on Selected Port'}
+                title={isDeviceConnected ? `Connected on ${selectedPortInfo?.port}` : 'Select a Serial COM Port'}
               >
-                <span
-                  className={`w-2.5 h-2.5 rounded-full shadow-sm shrink-0 ${
-                    isDeviceConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
-                  }`}
-                />
-                <span className="hidden sm:inline font-bold">
-                  {isDeviceConnected ? `🟢 ${connectedLabel}` : '🔴 No Arduino connected'}
-                </span>
-                <span className="sm:hidden font-bold">
-                  {isDeviceConnected ? `🟢 ${selectedPortInfo?.port || 'On'}` : '🔴 No Board'}
-                </span>
+                <span className={`w-2.5 h-2.5 rounded-full mr-1.5 shrink-0 ${isDeviceConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+                <select
+                  value={selectedPort}
+                  onChange={(e) => onSelectPort(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+                >
+                  {ports.map((p, idx) => (
+                    <option key={`hdr-port-${p.port}-${idx}`} value={p.port} className="bg-slate-900 text-white font-medium">
+                      {p.label || `${p.port} (${p.boardName || 'Arduino'})`}
+                    </option>
+                  ))}
+                </select>
               </div>
             );
           })()}
