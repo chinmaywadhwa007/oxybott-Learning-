@@ -1,0 +1,68 @@
+{
+  "name": "oxybott-agent",
+  "version": "1.0.0",
+  "description": "Oxybott Local Arduino Agent - Standalone Windows Service",
+  "main": "main.js",
+  "author": "Oxymora Technology Pvt. Ltd.",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "bundle": "node scripts/bundle-agent.js",
+    "build:installer": "node scripts/bundle-agent.js && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2"
+  },
+  "build": {
+    "appId": "com.oxymora.oxybott.agent",
+    "productName": "Oxybott Agent",
+    "executableName": "Oxybott Agent",
+    "compression": "normal",
+    "directories": {
+      "output": "../installer-dist"
+    },
+    "files": [
+      "main.js",
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "Oxybott Agent",
+      "sign": null,
+      "forceCodeSigning": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Oxybott Agent",
+      "uninstallDisplayName": "Oxybott Agent",
+      "runAfterFinish": true,
+      "useZip": true
+    }
+  }
+}

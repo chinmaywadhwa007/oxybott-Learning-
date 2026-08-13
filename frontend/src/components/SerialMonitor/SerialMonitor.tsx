@@ -10,11 +10,16 @@ import {
   Activity,
   Terminal,
   Binary,
+  ArrowLeft,
 } from 'lucide-react';
 
 const BAUD_RATES = ['300', '1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'];
 
-export const SerialMonitor: React.FC = () => {
+interface SerialMonitorProps {
+  onBack?: () => void;
+}
+
+export const SerialMonitor: React.FC<SerialMonitorProps> = ({ onBack }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [baudRate, setBaudRate] = useState('9600');
   const [mode, setMode] = useState<'ascii' | 'hex'>('ascii');
@@ -22,7 +27,7 @@ export const SerialMonitor: React.FC = () => {
   const [showTimestamp, setShowTimestamp] = useState(true);
   const [inputVal, setInputVal] = useState('');
   const [serialLogs, setSerialLogs] = useState<{ id: string; type: 'tx' | 'rx' | 'sys'; text: string; time: string }[]>([
-    { id: '1', type: 'sys', text: 'Serial Channel Initialized. Ready for connection.', time: new Date().toLocaleTimeString() },
+    { id: '1', type: 'sys', text: 'OxyCode Serial Channel Initialized. Select baud rate and click Connect.', time: new Date().toLocaleTimeString() },
   ]);
 
   const outputEndRef = useRef<HTMLDivElement | null>(null);
@@ -112,32 +117,43 @@ export const SerialMonitor: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#050B14] p-3 text-xs font-mono select-none space-y-2">
-      {/* Top Toolbar */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-2 gap-2 flex-wrap">
-        {/* Left: Connect Toggle & Baud Selector */}
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-full w-full bg-[#070d18] text-xs font-mono select-none overflow-hidden">
+      {/* 1. Serial Monitor Control Bar */}
+      <div className="h-9 px-3 bg-[#111827] border-b border-slate-800 flex items-center justify-between shrink-0 font-sans text-xs gap-2 overflow-x-auto custom-scrollbar-none">
+        {/* Left: Optional Back Button + Connect Toggle & Baud Selector */}
+        <div className="flex items-center gap-2 shrink-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="h-7 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-slate-700"
+              title="Back to Console View"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          )}
+
           <button
             onClick={toggleConnect}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold text-xs transition-colors cursor-pointer ${
+            className={`h-7 px-3 rounded-lg font-extrabold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
               isConnected
-                ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-md'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-md'
+                ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
             }`}
           >
             {isConnected ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-            <span>{isConnected ? 'Disconnect' : 'Connect Serial'}</span>
+            <span>{isConnected ? 'Disconnect' : 'Connect'}</span>
           </button>
 
-          <div className="flex items-center gap-1.5 bg-[#0B1524] border border-white/10 px-2.5 py-1.5 rounded-lg">
+          <div className="h-7 flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 px-2.5 rounded-lg">
             <span className="text-slate-400 font-sans text-[11px]">Baud:</span>
             <select
               value={baudRate}
               onChange={(e) => setBaudRate(e.target.value)}
-              className="bg-transparent text-[#5BE4FF] font-bold focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-[#00ff66] font-bold focus:outline-none cursor-pointer text-xs"
             >
               {BAUD_RATES.map((rate) => (
-                <option key={rate} value={rate} className="bg-[#0B1524] text-white">
+                <option key={rate} value={rate} className="bg-slate-900 text-white">
                   {rate}
                 </option>
               ))}
@@ -146,14 +162,14 @@ export const SerialMonitor: React.FC = () => {
         </div>
 
         {/* Right: Controls (ASCII/HEX, Timestamp, AutoScroll, Clear) */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Timestamp Toggle */}
           <button
             onClick={() => setShowTimestamp(!showTimestamp)}
-            className={`p-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+            className={`h-7 px-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
               showTimestamp
-                ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                : 'bg-[#0B1524] border-white/10 text-slate-400'
+                ? 'bg-blue-600/30 border-blue-500/50 text-blue-200'
+                : 'bg-slate-800 border-slate-700 text-slate-400'
             }`}
             title="Toggle Timestamp"
           >
@@ -164,10 +180,10 @@ export const SerialMonitor: React.FC = () => {
           {/* Auto Scroll Toggle */}
           <button
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`p-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+            className={`h-7 px-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
               autoScroll
-                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                : 'bg-[#0B1524] border-white/10 text-slate-400'
+                ? 'bg-purple-600/30 border-purple-500/50 text-purple-200'
+                : 'bg-slate-800 border-slate-700 text-slate-400'
             }`}
             title="Toggle Auto Scroll"
           >
@@ -176,11 +192,11 @@ export const SerialMonitor: React.FC = () => {
           </button>
 
           {/* ASCII / HEX View Switcher */}
-          <div className="flex items-center bg-[#0B1524] border border-white/10 rounded-lg p-0.5">
+          <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5">
             <button
               onClick={() => setMode('ascii')}
               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                mode === 'ascii' ? 'bg-[#5BE4FF] text-slate-950' : 'text-slate-400'
+                mode === 'ascii' ? 'bg-[#00ff66] text-slate-950 font-extrabold' : 'text-slate-400'
               }`}
             >
               ASCII
@@ -188,7 +204,7 @@ export const SerialMonitor: React.FC = () => {
             <button
               onClick={() => setMode('hex')}
               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                mode === 'hex' ? 'bg-[#5BE4FF] text-slate-950' : 'text-slate-400'
+                mode === 'hex' ? 'bg-[#00ff66] text-slate-950 font-extrabold' : 'text-slate-400'
               }`}
             >
               HEX
@@ -198,27 +214,28 @@ export const SerialMonitor: React.FC = () => {
           {/* Clear Button */}
           <button
             onClick={handleClear}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="h-7 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
             title="Clear Serial Screen"
           >
             <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline text-xs">Clear</span>
           </button>
         </div>
       </div>
 
-      {/* Serial Output Screen Feed */}
-      <div className="flex-1 bg-[#03070E] border border-white/10 rounded-xl p-3 overflow-auto space-y-1 text-slate-300 font-mono">
+      {/* 2. Pitch Black Serial Output Log Stream */}
+      <div className="flex-1 bg-[#000000] p-3 overflow-y-auto space-y-1 text-[#00ff66] font-mono text-[11px] leading-relaxed custom-scrollbar">
         {serialLogs.length === 0 ? (
-          <div className="text-slate-600 italic py-2">Serial monitor ready. Click Connect to stream data...</div>
+          <div className="text-slate-500 italic py-2 text-center">[OxyCode Serial Monitor Ready] Click Connect to stream data...</div>
         ) : (
           serialLogs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 hover:bg-white/[0.03] px-1 py-0.5 rounded text-[11px]">
+            <div key={log.id} className="flex items-start gap-2 hover:bg-white/[0.04] px-1 py-0.5 rounded text-[11px] transition-colors">
               {showTimestamp && <span className="text-[10px] text-slate-500 font-mono shrink-0">[{log.time}]</span>}
 
               {log.type === 'tx' ? (
-                <span className="text-[#5BE4FF] font-bold shrink-0">TX &gt;</span>
+                <span className="text-cyan-400 font-bold shrink-0">TX &gt;</span>
               ) : log.type === 'rx' ? (
-                <span className="text-emerald-400 font-bold shrink-0">RX &lt;</span>
+                <span className="text-[#00ff66] font-bold shrink-0">RX &lt;</span>
               ) : (
                 <span className="text-amber-400 font-bold shrink-0">SYS:</span>
               )}
@@ -226,9 +243,9 @@ export const SerialMonitor: React.FC = () => {
               <span
                 className={
                   log.type === 'tx'
-                    ? 'text-[#5BE4FF] font-semibold'
+                    ? 'text-cyan-300 font-semibold'
                     : log.type === 'rx'
-                    ? 'text-slate-200'
+                    ? 'text-[#00ff66]'
                     : 'text-amber-300 italic'
                 }
               >
@@ -240,26 +257,27 @@ export const SerialMonitor: React.FC = () => {
         <div ref={outputEndRef} />
       </div>
 
-      {/* TX Send Box */}
-      <div className="flex items-center gap-2">
+      {/* 3. Command Send Bar */}
+      <div className="h-10 px-3 bg-[#111827] border-t border-slate-800 flex items-center gap-2 shrink-0 font-sans">
         <input
           type="text"
-          placeholder={isConnected ? 'Type serial command to send (e.g. LED_ON)...' : 'Connect serial channel first...'}
+          placeholder={isConnected ? 'send command...' : 'Connect serial channel first to send commands...'}
           disabled={!isConnected}
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          className="flex-1 bg-[#0B1524] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#5BE4FF] disabled:opacity-50"
+          className="flex-1 h-7 bg-white border border-slate-300 rounded-lg px-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#007acc] disabled:opacity-50 disabled:bg-slate-200"
         />
         <button
           onClick={handleSend}
           disabled={!isConnected}
-          className="px-3.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-md"
+          className="h-7 px-4 rounded-lg bg-[#000000] hover:bg-slate-900 border border-[#00ff66] text-[#00ff66] font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
         >
           <Send className="w-3.5 h-3.5" />
-          <span>Send</span>
+          <span>send</span>
         </button>
       </div>
     </div>
   );
 };
+

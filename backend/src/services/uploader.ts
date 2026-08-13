@@ -34,7 +34,7 @@ export class ArduinoUploadService {
     // Check if arduino-cli is installed
     let isCliAvailable = false;
     try {
-      await execAsync(`"${ARDUINO_CLI}" version`);
+      await execAsync(`"${ARDUINO_CLI}" version`, { timeout: 5000 });
       isCliAvailable = true;
     } catch (_err) {
       console.log('⚡ arduino-cli binary not detected in PATH, using Oxybott uploader simulation');
@@ -77,13 +77,13 @@ export class ArduinoUploadService {
         await fs.mkdir(buildDir, { recursive: true });
 
         const compileCmd = `"${ARDUINO_CLI}" compile --fqbn ${fqbn} --output-dir "${buildDir}" "${tempDir}"`;
-        await execAsync(compileCmd);
+        await execAsync(compileCmd, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
         logs.push(`[Oxybott Uploader] ✅ Binary compiled successfully.`);
 
         // Step 3: Flash target via arduino-cli upload
         logs.push(`[Oxybott Uploader] [3/4] Flashing payload over ${port}...`);
         const uploadCmd = `"${ARDUINO_CLI}" upload -p ${port} --fqbn ${fqbn} --input-dir "${buildDir}" "${tempDir}"`;
-        const { stdout, stderr } = await execAsync(uploadCmd);
+        const { stdout, stderr } = await execAsync(uploadCmd, { timeout: 45000, maxBuffer: 10 * 1024 * 1024 });
 
         const uploadLogs = `${stdout}\n${stderr}`.split('\n').filter(Boolean);
         logs.push(...uploadLogs);

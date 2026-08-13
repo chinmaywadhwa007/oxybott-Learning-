@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { ValidationProblem } from '../../compiler';
+import { SerialMonitor } from '../SerialMonitor/SerialMonitor';
 
 export type ConsoleTab = 'console' | 'compile' | 'upload' | 'serial' | 'problems';
 
@@ -52,19 +53,19 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
         isCollapsed ? 'h-9' : 'h-full'
       }`}
     >
-      {/* 1. Terminal Header & Tab Bar */}
-      <div className="h-9 bg-[#090F1D] border-b border-[#1E293B]/60 px-3 flex items-center justify-between shrink-0 font-sans text-xs">
+      {/* 1. Terminal Header & Tab Bar (ALWAYS VISIBLE) */}
+      <div className="h-9 bg-[#1e293b] border-b border-[#3b475d] px-3 flex items-center justify-between shrink-0 font-sans text-xs text-slate-200 z-20">
         {/* Tabs Stack */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => onSelectTab('console')}
             className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'console'
-                ? 'bg-[#1E293B] text-[#38BDF8]'
+                ? 'bg-[#2d3748] text-emerald-400 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Terminal className="w-3.5 h-3.5 text-[#38BDF8]" />
+            <Terminal className="w-3.5 h-3.5 text-emerald-400" />
             <span>Console</span>
           </button>
 
@@ -72,7 +73,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             onClick={() => onSelectTab('compile')}
             className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'compile'
-                ? 'bg-[#1E293B] text-[#38BDF8]'
+                ? 'bg-[#2d3748] text-emerald-400 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -84,7 +85,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             onClick={() => onSelectTab('upload')}
             className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'upload'
-                ? 'bg-[#1E293B] text-[#38BDF8]'
+                ? 'bg-[#2d3748] text-emerald-400 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -96,11 +97,11 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             onClick={() => onSelectTab('serial')}
             className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'serial'
-                ? 'bg-[#1E293B] text-[#38BDF8]'
+                ? 'bg-[#2d3748] text-[#00ff66] font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Radio className="w-3.5 h-3.5 text-purple-400" />
+            <Radio className="w-3.5 h-3.5 text-[#00ff66]" />
             <span>Serial Monitor</span>
           </button>
 
@@ -108,7 +109,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             onClick={() => onSelectTab('problems')}
             className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'problems'
-                ? 'bg-[#1E293B] text-[#38BDF8]'
+                ? 'bg-[#2d3748] text-emerald-400 font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -130,7 +131,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
 
           <button
             onClick={handleDownloadLogs}
-            className="h-7 px-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-[#38BDF8] text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+            className="h-7 px-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-emerald-400 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
             title="Save Terminal Logs"
           >
             <Download className="w-3.5 h-3.5" />
@@ -151,74 +152,82 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
 
       {/* 2. Terminal Output Stream Body */}
       {!isCollapsed && (
-        <div className="flex-1 overflow-auto p-3 space-y-1 bg-[#070D18] text-slate-300 font-mono text-[11px] leading-relaxed custom-scrollbar">
-          {activeTab === 'problems' ? (
-            problems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-500 font-sans space-y-1 select-none">
-                <CheckCircle className="w-6 h-6 text-emerald-400 mb-1" />
-                <span className="text-xs font-bold text-emerald-400">No Problems Detected</span>
-                <span className="text-[11px] text-slate-600">Your Blockly workspace is valid with zero compilation errors.</span>
-              </div>
-            ) : (
-              problems.map((prob) => (
-                <div key={prob.id} className="flex items-start gap-2 bg-[#111A2E]/60 border border-[#1E293B] p-2 rounded-lg font-sans">
-                  <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${prob.severity === 'error' ? 'text-rose-400' : 'text-amber-400'}`} />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-white">{prob.message}</span>
-                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-white/5 font-mono text-slate-400">
-                        {prob.severity}
-                      </span>
-                    </div>
-                    {prob.suggestion && (
-                      <div className="text-[11px] text-slate-400">{prob.suggestion}</div>
-                    )}
-                  </div>
+        <div className="flex-1 overflow-hidden relative flex flex-col bg-[#000000] text-[#00ff66] font-mono text-[11px] leading-relaxed">
+          {activeTab === 'serial' ? (
+            <SerialMonitor onBack={() => onSelectTab('console')} />
+          ) : activeTab === 'problems' ? (
+            <div className="flex-1 overflow-auto p-3 space-y-1 custom-scrollbar">
+              {problems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-slate-500 font-sans space-y-1 select-none">
+                  <CheckCircle className="w-6 h-6 text-emerald-400 mb-1" />
+                  <span className="text-xs font-bold text-emerald-400">No Problems Detected</span>
+                  <span className="text-[11px] text-slate-600">Your Blockly workspace is valid with zero compilation errors.</span>
                 </div>
-              ))
-            )
-          ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-slate-500 font-sans space-y-1 select-none">
-              <Terminal className="w-6 h-6 text-slate-600 mb-1" />
-              <span className="text-xs font-bold text-slate-400">Terminal Ready</span>
-              <span className="text-[11px] text-slate-600">Select blocks or click Compile to start streaming logs...</span>
+              ) : (
+                problems.map((prob) => (
+                  <div key={prob.id} className="flex items-start gap-2 bg-slate-900 border border-slate-800 p-2 rounded-lg font-sans">
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${prob.severity === 'error' ? 'text-rose-400' : 'text-amber-400'}`} />
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-white">{prob.message}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-white/5 font-mono text-slate-400">
+                          {prob.severity}
+                        </span>
+                      </div>
+                      {prob.suggestion && (
+                        <div className="text-[11px] text-slate-400">{prob.suggestion}</div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           ) : (
-            logs.map((log, idx) => {
-              const isError = log.toLowerCase().includes('error') || log.includes('❌');
-              const isSuccess = log.toLowerCase().includes('successful') || log.includes('✅') || log.includes('🚀');
-              const isWarn = log.toLowerCase().includes('warning') || log.includes('⚠️');
-
-              return (
-                <div key={idx} className="flex items-start gap-2 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
-                  <span className="text-[10px] text-slate-500 shrink-0 font-mono">
-                    [{new Date().toLocaleTimeString()}]
-                  </span>
-                  {isError ? (
-                    <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                  ) : isSuccess ? (
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : isWarn ? (
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <Info className="w-3.5 h-3.5 text-[#38BDF8] shrink-0 mt-0.5" />
-                  )}
-                  <span
-                    className={
-                      isError
-                        ? 'text-rose-400 font-semibold'
-                        : isSuccess
-                        ? 'text-emerald-400 font-semibold'
-                        : isWarn
-                        ? 'text-amber-300 font-semibold'
-                        : 'text-slate-300'
-                    }
-                  >
-                    {log}
-                  </span>
+            <div className="flex-1 overflow-auto p-3 space-y-1 custom-scrollbar">
+              {logs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-slate-500 font-sans space-y-1 select-none">
+                  <Terminal className="w-6 h-6 text-emerald-600 mb-1" />
+                  <span className="text-xs font-bold text-emerald-500">[OxyCode Serial Monitor Ready]</span>
+                  <span className="text-[11px] text-slate-600">Waiting for hardware connection or compilation...</span>
                 </div>
-              );
-            })
+              ) : (
+                logs.map((log, idx) => {
+                  const isError = log.toLowerCase().includes('error') || log.includes('❌');
+                  const isSuccess = log.toLowerCase().includes('successful') || log.includes('✅') || log.includes('🚀');
+                  const isWarn = log.toLowerCase().includes('warning') || log.includes('⚠️');
+
+                  return (
+                    <div key={idx} className="flex items-start gap-2 hover:bg-white/5 px-2 py-0.5 rounded transition-colors font-mono">
+                      <span className="text-[10px] text-slate-500 shrink-0 font-mono">
+                        [{new Date().toLocaleTimeString()}]
+                      </span>
+                      {isError ? (
+                        <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                      ) : isSuccess ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-[#00ff66] shrink-0 mt-0.5" />
+                      ) : isWarn ? (
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <Info className="w-3.5 h-3.5 text-[#00ff66] shrink-0 mt-0.5" />
+                      )}
+                      <span
+                        className={
+                          isError
+                            ? 'text-rose-400 font-semibold'
+                            : isSuccess
+                            ? 'text-[#00ff66] font-semibold'
+                            : isWarn
+                            ? 'text-amber-300 font-semibold'
+                            : 'text-[#00ff66]'
+                        }
+                      >
+                        {log}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
       )}

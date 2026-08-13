@@ -13,7 +13,8 @@ import { CommandPaletteModal } from '../components/CommandPaletteModal';
 import { ProjectExplorer } from '../components/ProjectExplorer/ProjectExplorer';
 import { ImportExportModal } from '../components/ImportExportModal/ImportExportModal';
 import { LibraryManagerModal } from '../components/LibraryManagerModal/LibraryManagerModal';
-import { fetchBoards, fetchPorts, requestCompile, requestUpload, BoardProfile, SerialPortInfo } from '../services/arduinoApi';
+import { ToastNotification, ToastMessage } from '../components/common/ToastNotification';
+import { fetchBoards, fetchPorts, requestCompile, requestUpload, checkAgentHealth, BoardProfile, SerialPortInfo } from '../services/arduinoApi';
 import { compileWorkspaceWithValidation } from '../generators/arduinoGenerator';
 import { useProjectStore } from '../projects/projectStore';
 
@@ -21,7 +22,8 @@ export const BlocklyPage: React.FC = () => {
   const [boards, setBoards] = useState<BoardProfile[]>([]);
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const [selectedBoardFqbn, setSelectedBoardFqbn] = useState('arduino:avr:uno');
-  const [selectedPort, setSelectedPort] = useState('COM3');
+  const [selectedPort, setSelectedPort] = useState('');
+  const [isAgentRunning, setIsAgentRunning] = useState<boolean>(true);
 
   // Layout & View Mode States
   const [viewMode, setViewMode] = useState<StudioViewMode>('split');
@@ -57,7 +59,22 @@ export const BlocklyPage: React.FC = () => {
   const [activeConsoleTab, setActiveConsoleTab] = useState<ConsoleTab>('console');
 
   const workspaceRef = useRef<BlocklyWorkspaceRef | null>(null);
+  const lastValErrorRef = useRef<string>('');
   const { saveCurrentProject } = useProjectStore();
+
+  // Toast notifications state & helper
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (title: string, description?: string, type: 'error' | 'warning' | 'info' | 'success' = 'error', duration?: number) => {
+    const id = String(Date.now() + Math.random());
+    setToasts((prev) => [...prev, { id, title, description, type, duration }]);
+  };
+
+  const dismissToast = React.useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const prevPortsCountRef = useRef<number>(-1);
 
   useEffect(() => {
     loadBoardsAndPorts();
@@ -102,10 +119,10 @@ export const BlocklyPage: React.FC = () => {
     window.addEventListener('dragover', handleWindowDragOver);
     window.addEventListener('drop', handleWindowDrop);
 
-    // Auto-refresh hardware detection every 5 seconds (5000ms)
+    // Hardware detection polling every 2.5 seconds (2500ms)
     const hardwareInterval = setInterval(() => {
       loadBoardsAndPorts();
-    }, 5000);
+    }, 2500);
 
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
@@ -116,16 +133,64 @@ export const BlocklyPage: React.FC = () => {
   }, []);
 
   const loadBoardsAndPorts = async () => {
+    const health = await checkAgentHealth();
+    setIsAgentRunning(health.isAgentRunning);
+
+    if (!health.isAgentRunning) {
+      setPorts([]);
+      return;
+    }
+
     const bList = await fetchBoards();
     const pList = await fetchPorts();
     setBoards(bList);
     setPorts(pList);
 
-    // Automatically populate toolbar dropdowns if new hardware detected
-    if (pList.length > 0) {
-      const activeP = pList.find((p) => p.port === selectedPort) || pList[0];
+    // Filter verified Arduino physical hardware devices
+    const verifiedPorts = pList.filter(
+      (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+    );
+
+    const isInitialLoad = prevPortsCountRef.current === -1;
+
+    // Detect Hardware Connection / Disconnection events
+    if (!isInitialLoad && prevPortsCountRef.current === 0 && verifiedPorts.length > 0) {
+      const activeP = verifiedPorts[0];
+      addToast(
+        `${activeP.boardName || 'Arduino'} Connected`,
+        `Connected on ${activeP.port} ready for programming.`,
+        'success'
+      );
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🟢 [Hardware Connect] ${activeP.boardName || 'Arduino'} connected on ${activeP.port}.`,
+      ]);
+    } else if (!isInitialLoad && prevPortsCountRef.current > 0 && verifiedPorts.length === 0) {
+      addToast('Arduino Disconnected', 'Please reconnect your board and try again.', 'error');
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🔴 [Hardware Disconnect] Arduino board unplugged/disconnected from USB port.`,
+      ]);
+    }
+    prevPortsCountRef.current = verifiedPorts.length;
+
+    // Automatically set active board and port if verified physical hardware is detected
+    if (verifiedPorts.length > 0) {
+      const activeP = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[0];
+      if (activeP.port !== selectedPort) {
+        setSelectedPort(activeP.port);
+      }
       if (activeP.fqbn && activeP.fqbn !== selectedBoardFqbn) {
         setSelectedBoardFqbn(activeP.fqbn);
+      }
+    } else if (pList.length > 0) {
+      const activeP = pList[0];
+      if (activeP.port !== selectedPort) {
+        setSelectedPort(activeP.port);
+      }
+    } else {
+      if (selectedPort !== '') {
+        setSelectedPort('');
       }
     }
   };
@@ -134,6 +199,33 @@ export const BlocklyPage: React.FC = () => {
     setActiveCategory(cat.name);
     if (workspaceRef.current) {
       workspaceRef.current.selectCategory(cat.blocklyCategoryName || cat.name);
+    }
+  };
+
+  const handleValidationProblems = (problems: any[], isValid: boolean, errors: string[]) => {
+    setValidationProblems(problems);
+
+    const timestamp = new Date().toLocaleTimeString();
+    const currentErrorStr = errors.join(' | ');
+
+    if (!isValid && errors.length > 0) {
+      if (lastValErrorRef.current !== currentErrorStr) {
+        lastValErrorRef.current = currentErrorStr;
+        const errorLogs = [
+          `[${timestamp}] ❌ [Real-Time Validation Failed] ${errors.length} logic issue(s) detected:`,
+          ...errors.map((err) => `   ↳ ❌ ${err}`),
+          `[${timestamp}] ⚠️ Code generation suspended. Fix highlighted blocks on canvas or check the Problems tab.`,
+        ];
+        setConsoleLogs((prev) => [...prev, ...errorLogs]);
+      }
+    } else {
+      if (lastValErrorRef.current !== '') {
+        lastValErrorRef.current = '';
+        setConsoleLogs((prev) => [
+          ...prev,
+          `[${timestamp}] ✅ [Real-Time Validation Passed] Code logic clean & valid. Arduino C++ generated cleanly.`,
+        ]);
+      }
     }
   };
 
@@ -156,15 +248,52 @@ export const BlocklyPage: React.FC = () => {
   };
 
   const handleCompile = async () => {
-    setActiveConsoleTab('compile');
+    // 1. Requirement 8: Check Local Oxybott Agent Health
+    const health = await checkAgentHealth();
+    setIsAgentRunning(health.isAgentRunning);
+
+    if (!health.isAgentRunning) {
+      addToast(
+        'Oxybott Agent not running',
+        'Oxybott Arduino Agent is not running. Please start the local agent to connect your Arduino.',
+        'error'
+      );
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🔴 [Agent Offline] Oxybott Arduino Agent is not running on your computer. Launch 'npm run agent' in terminal.`,
+      ]);
+      return; // DO NOT call /compile!
+    }
+
+    // 2. Requirement 1 & 2: Verify Physical Arduino Hardware Device Presence
+    const currentPorts = await fetchPorts();
+    setPorts(currentPorts);
+
+    const verifiedPorts = currentPorts.filter(
+      (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+    );
+
+    if (currentPorts.length === 0 || verifiedPorts.length === 0) {
+      addToast(
+        'Arduino device not connected',
+        'Please connect your Arduino board and try again.',
+        'error'
+      );
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🔴 [Compilation Blocked] Arduino device not connected. Please connect your Arduino board and try again.`,
+      ]);
+      return; // DO NOT call /compile!
+    }
 
     const workspace = workspaceRef.current?.getWorkspace();
     if (!workspace) return;
 
-    // 1. Run Workspace Validation
+    // 3. Run Workspace Validation
     const valResult = compileWorkspaceWithValidation(workspace);
 
     if (!valResult.valid || valResult.errors.length > 0) {
+      setActiveConsoleTab('problems');
       const errorLogs = [
         '==================================',
         'Blockly Validation Failed',
@@ -173,12 +302,14 @@ export const BlocklyPage: React.FC = () => {
         ...valResult.errors.map((err) => `❌ ${err}`),
         '',
         'Compilation cancelled.',
-        'Please fix the highlighted blocks.',
+        'Please fix the highlighted blocks or inspect the Problems tab.',
       ];
 
       setConsoleLogs((prev) => [...prev, ...errorLogs]);
       return; // STOP! Do not call backend API or Arduino CLI!
     }
+
+    setActiveConsoleTab('compile');
 
     if (!code || code.trim() === '') {
       setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚠️ Cannot compile: Blockly workspace is empty. Add blocks to generate code.`]);
@@ -197,13 +328,8 @@ export const BlocklyPage: React.FC = () => {
       setConsoleLogs((prev) => [...prev, ...res.logs]);
     }
 
-    if (res.simulated) {
-      setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] 🌐 No physical hardware detected — Running in Virtual Hardware Simulator Mode!`]);
-      setIsSimulatorOpen(true);
-      simulationEngine.startSimulation(code);
-    }
-
     if (res.success) {
+      addToast('Compilation successful', 'Sketch compiled cleanly with exit code 0', 'success');
       const metrics: string[] = [
         `[${new Date().toLocaleTimeString()}] ✅ [Compilation Successful] Exit Code 0 (${res.compileTimeMs}ms)`,
       ];
@@ -215,6 +341,7 @@ export const BlocklyPage: React.FC = () => {
       }
       setConsoleLogs((prev) => [...prev, ...metrics]);
     } else {
+      addToast('Compilation failed', res.errors?.[0] || 'Compiler returned non-zero exit code.', 'error');
       setConsoleLogs((prev) => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] ❌ [Compilation Failed] Non-zero exit code or compiler error (${res.compileTimeMs}ms)`,
@@ -223,15 +350,62 @@ export const BlocklyPage: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    setActiveConsoleTab('upload');
+    // 1. Requirement 8: Check Local Oxybott Agent Health
+    const health = await checkAgentHealth();
+    setIsAgentRunning(health.isAgentRunning);
+
+    if (!health.isAgentRunning) {
+      addToast(
+        'Oxybott Agent not running',
+        'Oxybott Arduino Agent is not running. Please start the local agent to connect your Arduino.',
+        'error'
+      );
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🔴 [Agent Offline] Oxybott Arduino Agent is not running on your computer. Launch 'npm run agent' in terminal.`,
+      ]);
+      return; // DO NOT call /upload!
+    }
+
+    // 2. Requirement 1, 2, 5: Fresh Port Check Before Upload
+    const currentPorts = await fetchPorts();
+    setPorts(currentPorts);
+
+    const verifiedPorts = currentPorts.filter(
+      (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+    );
+
+    if (currentPorts.length === 0 || verifiedPorts.length === 0) {
+      addToast(
+        'Arduino device not connected',
+        'Please connect your Arduino board and try again.',
+        'error'
+      );
+      setConsoleLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] 🔴 [Upload Blocked] Arduino device not connected. Please connect your Arduino board and try again.`,
+      ]);
+      return; // DO NOT call /upload!
+    }
+
+    // Fresh port resolution immediately before upload
+    const activePort = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[0];
+    const targetPort = activePort.port;
+    const targetFqbn = activePort.fqbn || selectedBoardFqbn;
+
+    if (!targetPort) {
+      addToast('Port unavailable', 'No valid serial port detected for upload.', 'error');
+      return;
+    }
 
     const workspace = workspaceRef.current?.getWorkspace();
     if (!workspace) return;
 
-    // 1. Run Workspace Validation
+    // 2. Run Workspace Validation
     const valResult = compileWorkspaceWithValidation(workspace);
 
     if (!valResult.valid || valResult.errors.length > 0) {
+      setActiveConsoleTab('problems');
       const errorLogs = [
         '==================================',
         'Blockly Validation Failed',
@@ -240,12 +414,14 @@ export const BlocklyPage: React.FC = () => {
         ...valResult.errors.map((err) => `❌ ${err}`),
         '',
         'Upload cancelled.',
-        'Please fix the highlighted blocks.',
+        'Please fix the highlighted blocks or inspect the Problems tab.',
       ];
 
       setConsoleLogs((prev) => [...prev, ...errorLogs]);
       return; // STOP! Do not call backend API or Arduino CLI!
     }
+
+    setActiveConsoleTab('upload');
 
     if (!code || code.trim() === '') {
       setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚠️ Cannot upload: Blockly workspace is empty. Add blocks to generate code.`]);
@@ -253,26 +429,22 @@ export const BlocklyPage: React.FC = () => {
     }
 
     setIsUploading(true);
-    setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] 🚀 Flashing target [${selectedBoardFqbn}] on ${selectedPort}...`]);
+    setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] 🚀 Flashing target [${targetFqbn}] on ${targetPort}...`]);
 
     console.log('[COMPILER PIPELINE] 4. Code passed to compiler API:\n', code);
 
-    const res = await requestUpload(code, selectedBoardFqbn, selectedPort);
+    const res = await requestUpload(code, targetFqbn, targetPort);
     setIsUploading(false);
 
     if (res.logs && res.logs.length > 0) {
       setConsoleLogs((prev) => [...prev, ...res.logs]);
     }
 
-    if (res.simulated) {
-      setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] 🌐 Flashed to Virtual MCU — Launching Hardware Simulator!`]);
-      setIsSimulatorOpen(true);
-      simulationEngine.startSimulation(code);
-    }
-
     if (res.success) {
-      setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ✅ Upload complete!`]);
+      addToast('Upload successful', `Successfully flashed code to ${targetPort}`, 'success');
+      setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ✅ [Upload Successful] Exit code 0. Target MCU restarted cleanly.`]);
     } else {
+      addToast('Upload failed', res.error || 'Check hardware connection or COM port.', 'error');
       setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ❌ Upload failed: ${res.error || 'Check hardware connection'}`]);
     }
   };
@@ -367,7 +539,8 @@ export const BlocklyPage: React.FC = () => {
   const activePortObj = ports.find((p) => p.port === selectedPort);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#070D18] overflow-hidden text-slate-100 font-sans relative">
+    <div className="flex flex-col h-screen w-screen bg-[#ffffff] overflow-hidden text-slate-800 font-sans relative">
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
       {/* 1. TOP COMMAND BAR */}
       <HeaderToolbar
         boards={boards}
@@ -398,6 +571,7 @@ export const BlocklyPage: React.FC = () => {
         }}
         onOpenLibraryManager={() => setIsLibraryManagerOpen(true)}
         isCodeEmpty={!code || code.trim() === ''}
+        isAgentRunning={isAgentRunning}
       />
 
       {/* 2. MAIN THREE-PANEL IDE LAYOUT */}
@@ -407,7 +581,7 @@ export const BlocklyPage: React.FC = () => {
           <>
             <div
               style={{ width: isSidebarCollapsed ? 64 : leftWidth }}
-              className="h-full flex flex-col shrink-0 z-10 transition-all duration-150 bg-[#0B132B] border-r border-[#1E293B]/60"
+              className="h-full flex flex-col shrink-0 z-10 transition-all duration-150 bg-[#f8fafc] border-r border-slate-200"
             >
               <ToolboxSidebar
                 activeCategory={activeCategory}
@@ -433,10 +607,10 @@ export const BlocklyPage: React.FC = () => {
             {!isSidebarCollapsed && (
               <div
                 onMouseDown={handleLeftMouseDown}
-                className="w-1 h-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-col-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
+                className="w-1 h-full bg-slate-200 hover:bg-[#007acc] cursor-col-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
                 title="Drag to resize Left Panel"
               >
-                <div className="w-0.5 h-8 bg-slate-600/40 group-hover:bg-[#38BDF8] rounded-full" />
+                <div className="w-0.5 h-8 bg-slate-400 group-hover:bg-white rounded-full" />
               </div>
             )}
           </>
@@ -444,12 +618,12 @@ export const BlocklyPage: React.FC = () => {
 
         {/* MOBILE SLIDE-OVER TOOLBOX DRAWER */}
         {isMobileScreen && activeCategory === 'mobile_toolbox_open' && (
-          <div className="absolute inset-0 z-30 bg-[#0B132B] flex flex-col">
-            <div className="h-10 px-4 bg-[#0E1726] border-b border-[#1E293B] flex items-center justify-between">
+          <div className="absolute inset-0 z-30 bg-white flex flex-col">
+            <div className="h-10 px-4 bg-[#007acc] border-b border-[#0066cc] flex items-center justify-between">
               <span className="font-bold text-xs text-white">Block Categories</span>
               <button
                 onClick={() => setActiveCategory(null)}
-                className="text-xs font-bold text-[#38BDF8]"
+                className="text-xs font-bold text-white bg-white/20 px-2 py-1 rounded"
               >
                 Close ✕
               </button>
@@ -470,13 +644,15 @@ export const BlocklyPage: React.FC = () => {
 
         {/* CENTER PANEL: Blockly Workspace Canvas */}
         {(viewMode === 'split' || viewMode === 'blocks') && (
-          <div className="flex-1 h-full relative overflow-hidden bg-[#070D18]">
+          <div className="flex-1 h-full relative overflow-hidden bg-[#ffffff]">
             <BlocklyWorkspace
               ref={workspaceRef}
               onCodeChange={handleBlocklyCodeChange}
-              onValidationProblems={setValidationProblems}
+              onValidationProblems={handleValidationProblems}
               showHints={showHints}
               activeCategory={activeCategory}
+              onToggleTerminal={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
+              isTerminalCollapsed={isConsoleCollapsed}
             />
           </div>
         )}
@@ -488,16 +664,16 @@ export const BlocklyPage: React.FC = () => {
             {!isMobileScreen && viewMode === 'split' && (
               <div
                 onMouseDown={handleRightMouseDown}
-                className="w-1 h-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-col-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
+                className="w-1 h-full bg-slate-200 hover:bg-[#007acc] cursor-col-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
                 title="Drag to resize Right Panel"
               >
-                <div className="w-0.5 h-8 bg-slate-600/40 group-hover:bg-[#38BDF8] rounded-full" />
+                <div className="w-0.5 h-8 bg-slate-400 group-hover:bg-white rounded-full" />
               </div>
             )}
 
             <div
               style={{ width: viewMode === 'split' ? rightWidth : '100%' }}
-              className="h-full bg-[#0B132B] border-l border-[#1E293B]/60 shrink-0 overflow-hidden"
+              className="h-full bg-[#2d3748] border-l border-slate-300 shrink-0 overflow-hidden"
             >
               <CodeViewer
                 code={code}
@@ -513,7 +689,7 @@ export const BlocklyPage: React.FC = () => {
 
         {/* VIRTUAL HARDWARE SIMULATOR */}
         {isSimulatorOpen && (
-          <div className="fixed inset-0 lg:static lg:inset-auto lg:w-[380px] h-full border-l border-[#1E293B]/60 shadow-2xl z-40 shrink-0 bg-[#070D18]">
+          <div className="fixed inset-0 lg:static lg:inset-auto lg:w-[380px] h-full border-l border-slate-300 shadow-2xl z-40 shrink-0 bg-[#070D18]">
             <VirtualArduino code={code} onClose={() => setIsSimulatorOpen(false)} />
           </div>
         )}
@@ -521,77 +697,47 @@ export const BlocklyPage: React.FC = () => {
 
       {/* 3. BOTTOM TERMINAL CONSOLE PANEL */}
       {!isMobileScreen && (
-        <div style={{ height: isConsoleCollapsed ? 36 : bottomHeight }} className="shrink-0 relative z-10 flex flex-col bg-[#0B132B] border-t border-[#1E293B]/60">
+        <div style={{ height: isConsoleCollapsed ? 36 : bottomHeight }} className="shrink-0 relative z-10 flex flex-col bg-[#1e293b] border-t border-slate-700">
           {!isConsoleCollapsed && (
             <div
               onMouseDown={handleBottomMouseDown}
-              className="h-1 w-full bg-[#1E293B]/40 hover:bg-[#38BDF8]/60 cursor-row-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
+              className="h-1 w-full bg-slate-700 hover:bg-[#007acc] cursor-row-resize z-20 transition-colors group flex items-center justify-center shrink-0 select-none"
               title="Drag to resize Bottom Panel"
             >
-              <div className="h-0.5 w-8 bg-slate-600/40 group-hover:bg-[#38BDF8] rounded-full" />
+              <div className="h-0.5 w-8 bg-slate-400 group-hover:bg-white rounded-full" />
             </div>
           )}
 
-          {activeConsoleTab === 'serial' ? (
-            <div className="flex-1 border-t border-white/[0.08] bg-[#090E17] relative z-10 overflow-hidden">
-              <SerialMonitor />
-            </div>
-          ) : (
-            <ConsoleLog
-              logs={consoleLogs}
-              problems={validationProblems}
-              activeTab={activeConsoleTab}
-              onSelectTab={setActiveConsoleTab}
-              onClearLogs={() => setConsoleLogs([])}
-              isCollapsed={isConsoleCollapsed}
-              onToggleCollapse={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
-            />
-          )}
+          <ConsoleLog
+            logs={consoleLogs}
+            problems={validationProblems}
+            activeTab={activeConsoleTab}
+            onSelectTab={setActiveConsoleTab}
+            onClearLogs={() => setConsoleLogs([])}
+            isCollapsed={isConsoleCollapsed}
+            onToggleCollapse={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
+          />
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      {isMobileScreen && (
-        <div className="h-12 bg-[#090F1D] border-t border-[#1E293B] flex items-center justify-around px-2 z-20 shrink-0 select-none">
-          <button
-            onClick={() => setViewMode('blocks')}
-            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
-              viewMode === 'blocks' ? 'text-[#38BDF8] bg-white/5' : 'text-slate-400'
-            }`}
-          >
-            <span className="text-sm">🧩</span>
-            <span>Blocks</span>
-          </button>
-
-          <button
-            onClick={() => setActiveCategory('mobile_toolbox_open')}
-            className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white"
-          >
-            <span className="text-sm">🧰</span>
-            <span>Toolbox</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode('code')}
-            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
-              viewMode === 'code' ? 'text-[#38BDF8] bg-white/5' : 'text-slate-400'
-            }`}
-          >
-            <span className="text-sm">💻</span>
-            <span>Code</span>
-          </button>
-
-          <button
-            onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
-            className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-colors ${
-              isSimulatorOpen ? 'text-purple-400 bg-purple-500/10' : 'text-slate-400'
-            }`}
-          >
-            <span className="text-sm">⚡</span>
-            <span>Simulate</span>
-          </button>
+      {/* 4. VISUAL STUDIO BLUE STATUS FOOTER BAR */}
+      <div className="h-6 bg-[#007acc] text-white select-none shrink-0 z-20 px-3 flex items-center justify-between font-sans text-[11px] font-semibold border-t border-blue-600 shadow-inner">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-400" />
+            <span>Disconnected</span>
+          </span>
+          <span>|</span>
+          <span>Board: {currentBoardName}</span>
+          <span>|</span>
+          <span>Mode: Upload Mode</span>
         </div>
-      )}
+        <div className="hidden sm:flex items-center gap-2 text-blue-100 font-medium">
+          <span>Oxymora Technology Pvt. Ltd.</span>
+          <span>|</span>
+          <span>v1.0.0</span>
+        </div>
+      </div>
 
       {/* COMMAND PALETTE OVERLAY (Ctrl+K) */}
       <CommandPaletteModal

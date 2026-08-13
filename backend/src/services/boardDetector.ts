@@ -119,19 +119,9 @@ export async function detectSerialPorts(): Promise<(SerialPortInfo & Partial<Det
       vendorId: d.vendorId,
       productId: d.productId,
       fqbn: d.fqbn,
+      isVerifiedArduino: d.isVerifiedArduino,
     }));
   } catch (_err) {
-    const fallback = BoardManagerService.getSimulatedHardwareList();
-    return fallback.map((d) => ({
-      port: d.port,
-      label: d.label || `${d.port} (${d.boardName})`,
-      boardName: d.boardName,
-      status: d.status,
-      chip: d.chip,
-      vendor: d.vendor,
-      vendorId: d.vendorId,
-      productId: d.productId,
-      fqbn: d.fqbn,
-    }));
+    return [];
   }
 }

@@ -61,19 +61,17 @@ export class OxybottCompilerPipeline {
 
     const isValid = errors.length === 0;
 
-    let formattedCode = '';
+    // 3. Generate raw code from AST
+    const rawCode = ArduinoCodeGenerator.generate(ast);
 
-    if (isValid) {
-      // 3. Generate raw code from AST
-      const rawCode = ArduinoCodeGenerator.generate(ast);
+    // 4. Format code
+    const formattedCode = Formatter.format(rawCode);
 
-      // 4. Format code
-      formattedCode = Formatter.format(rawCode);
+    // PIPELINE LOG STAGE 3: Generated Arduino Code
+    console.log('[COMPILER PIPELINE] 3. Generated Arduino Code:\n', formattedCode || '(Empty Code)');
 
-      // PIPELINE LOG STAGE 3: Generated Arduino Code
-      console.log('[COMPILER PIPELINE] 3. Generated Arduino Code:\n', formattedCode || '(Empty Code)');
-    } else {
-      console.warn('[COMPILER PIPELINE] Validation failed with errors:', errors);
+    if (!isValid) {
+      console.warn('[COMPILER PIPELINE] Validation identified issues:', errors);
     }
 
     const endTime = performance.now();

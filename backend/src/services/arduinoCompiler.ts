@@ -6,11 +6,40 @@ import os from 'os';
 
 const execAsync = promisify(exec);
 
-export const ARDUINO_CLI =
-  process.env.ARDUINO_CLI_PATH ||
-  (process.platform === 'win32'
-    ? 'E:\\arduino\\arduino-cli.exe'
-    : 'arduino-cli');
+import fsSync from 'fs';
+
+const getDefaultArduinoCli = (): string => {
+  if (process.env.ARDUINO_CLI_PATH) {
+    return process.env.ARDUINO_CLI_PATH;
+  }
+
+  if (process.platform === 'win32') {
+    // 1. Check relative app process directory & Electron resources path
+    const appDir = process.cwd();
+    const electronResources = (typeof process !== 'undefined' && (process as any).resourcesPath)
+      ? (process as any).resourcesPath
+      : '';
+
+    const candidatePaths = [
+      electronResources ? path.join(electronResources, 'bin', 'arduino-cli.exe') : '',
+      path.join(appDir, 'resources', 'bin', 'arduino-cli.exe'),
+      path.join(appDir, 'bin', 'arduino-cli.exe'),
+      path.join(path.dirname(process.execPath), 'resources', 'bin', 'arduino-cli.exe'),
+      path.join(path.dirname(process.execPath), 'bin', 'arduino-cli.exe'),
+      'E:\\arduino\\arduino-cli.exe',
+    ].filter(Boolean);
+
+    for (const p of candidatePaths) {
+      if (fsSync.existsSync(p)) {
+        return p;
+      }
+    }
+    return 'arduino-cli';
+  }
+  return 'arduino-cli';
+};
+
+export const ARDUINO_CLI = getDefaultArduinoCli();
 
 export interface MemoryUsage {
   flashBytes: number;
@@ -52,7 +81,7 @@ export class ArduinoCompilerService {
     try {
       if (process.platform !== 'win32') {
         try {
-          await execAsync(`which "${ARDUINO_CLI}"`);
+          await execAsync(`which "${ARDUINO_CLI}"`, { timeout: 5000 });
         } catch (_whichErr) {
           return {
             isAvailable: false,
@@ -61,7 +90,7 @@ export class ArduinoCompilerService {
         }
       }
 
-      const { stdout } = await execAsync(`"${ARDUINO_CLI}" version`);
+      const { stdout } = await execAsync(`"${ARDUINO_CLI}" version`, { timeout: 5000 });
       const versionStr = stdout.trim();
       return { isAvailable: true, version: versionStr };
     } catch (_err: any) {
@@ -135,12 +164,12 @@ export class ArduinoCompilerService {
 
       console.log(`[ARDUINO CLI ENGINE] Temporary sketch created at: ${generated.sketchPath}`);
 
-      // 2. Execute arduino-cli compile command
+      // 2. Execute arduino-cli compile command with 30s timeout and 10MB max buffer
       cmd = `"${ARDUINO_CLI}" compile --fqbn ${fqbn} --output-dir "${buildDir}" "${tempDir}"`;
       console.log("Command:");
       console.log(cmd);
 
-      const { stdout, stderr } = await execAsync(cmd);
+      const { stdout, stderr } = await execAsync(cmd, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
 
       const rawStdout = stdout || '';
       const rawStderr = stderr || '';

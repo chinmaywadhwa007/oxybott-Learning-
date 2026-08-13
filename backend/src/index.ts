@@ -42,15 +42,36 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/arduino', arduinoRouter);
 
+// Global Error & Process Resilience Handlers for Production
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ [BACKEND UNHANDLED REJECTION]:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ [BACKEND UNCAUGHT EXCEPTION]:', err);
+});
+
 async function startServer() {
   // Initialize Database Tables
   await initDatabase();
 
   // Start Server
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`\n🚀 [AUTH BACKEND] Server running on http://localhost:${PORT}`);
     console.log(`👉 API Healthcheck: http://localhost:${PORT}/api/health\n`);
   });
+
+  // Graceful Shutdown
+  const shutdown = () => {
+    console.log('\n🛑 [AUTH BACKEND] Shutting down gracefully...');
+    server.close(() => {
+      console.log('✅ HTTP Server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer();

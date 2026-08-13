@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "agent": "tsx watch src/agent/agentServer.ts",
+    "build:installer": "node scripts/build-agent-installer.js",
     "build": "tsc",
     "start": "node dist/index.js"
   },

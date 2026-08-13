@@ -23,14 +23,13 @@ export const gpioPlugins: BlockCompilerPlugin[] = [
     buildAST: (block, ctx) => {
       const pin = block.getFieldValue('PIN') || '13';
       const mode = block.getFieldValue('MODE') || 'OUTPUT';
-      ctx.ast.pinModes.set(pin, mode as any);
 
       return {
         id: `node_${block.id}`,
         kind: 'statement',
         type: block.type,
         blockId: block.id,
-        codeSnippet: `// Pin ${pin} configured as ${mode} in setup()`,
+        codeSnippet: `pinMode(${pin}, ${mode});`,
         metadata: { pin, mode },
       };
     },

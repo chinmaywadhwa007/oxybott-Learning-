@@ -11,12 +11,26 @@ export class ValidationEngine {
     const problems: ValidationProblem[] = [...existingProblems];
     const allBlocks = workspace.getAllBlocks(false);
 
+    // 0. Empty Program / Structural Hint Check
+    const executableBlocks = allBlocks.filter(
+      (b) => b.type !== 'arduino_setup_loop' && b.type !== 'arduino_setup' && b.type !== 'arduino_loop'
+    );
+
+    if (allBlocks.length === 0 || executableBlocks.length === 0) {
+      problems.push({
+        id: 'val_incomplete_code',
+        severity: 'warning',
+        message: 'Workspace structure ready: Add action blocks inside Setup or Loop to control hardware.',
+        suggestion: 'Drag and connect blocks (e.g., GPIO Pin, Timing, Motors, or Sensors) inside the Setup or Loop block.',
+      });
+    }
+
     // 1. Missing Setup / Loop Structure Validation
     if (!ast.hasSetupBlock && !ast.hasLoopBlock && ast.rawBlocksCount > 0) {
       problems.push({
         id: 'val_missing_structure',
-        severity: 'warning',
-        message: 'No main Arduino Setup / Loop container block found.',
+        severity: 'error',
+        message: 'No main Arduino Setup & Loop container block found on workspace.',
         suggestion: 'Drag an "Arduino Setup & Loop" block from the Setup category.',
       });
     }
@@ -30,7 +44,6 @@ export class ValidationEngine {
       const isRegistered = compilerRegistry.has(type);
 
       if (!isContainer && !isRegistered) {
-        // Prevent duplicate problem entries if ASTBuilder already recorded it
         const alreadyAdded = problems.some((p) => p.blockId === block.id && p.message.includes('Unsupported block'));
         if (!alreadyAdded) {
           problems.push({
@@ -38,7 +51,7 @@ export class ValidationEngine {
             severity: 'error',
             blockId: block.id,
             blockType: type,
-            message: `Unsupported block: ${type}`,
+            message: `Unsupported block type "${type}".`,
             suggestion: 'Remove or replace this block with a supported Arduino hardware block.',
           });
         }
@@ -52,21 +65,22 @@ export class ValidationEngine {
           root.type !== 'arduino_setup' &&
           root.type !== 'arduino_loop'
         ) {
-          // Floating block disconnected from program flow
-          problems.push({
-            id: `disconnected_${block.id}`,
-            severity: 'error',
-            blockId: block.id,
-            blockType: type,
-            message: `Disconnected block "${type}" is outside the main setup/loop program flow.`,
-            suggestion: 'Attach block inside setup() or loop() containers.',
-          });
+          const alreadyAdded = problems.some((p) => p.blockId === block.id && p.message.includes('Disconnected block'));
+          if (!alreadyAdded) {
+            problems.push({
+              id: `disconnected_${block.id}`,
+              severity: 'error',
+              blockId: block.id,
+              blockType: type,
+              message: `Disconnected block "${type}" is outside the main setup() / loop() program flow.`,
+              suggestion: 'Attach this block inside the Setup or Loop container block.',
+            });
+          }
         }
       }
 
       // Check 2c: Missing Required Value Inputs
       for (const input of block.inputList) {
-        // Value input connection check (type === 1 or value connection)
         const isValueInput =
           input.type === 1 ||
           (input.type as any) === 'VALUE' ||
@@ -75,20 +89,23 @@ export class ValidationEngine {
         if (isValueInput) {
           const target = input.connection?.targetBlock();
           if (!target) {
-            problems.push({
-              id: `missing_input_${block.id}_${input.name}`,
-              severity: 'error',
-              blockId: block.id,
-              blockType: type,
-              message: `Block "${type}" is missing required input "${input.name}".`,
-              suggestion: `Connect a value block to the "${input.name}" socket.`,
-            });
+            const alreadyAdded = problems.some((p) => p.blockId === block.id && p.message.includes(`missing required input "${input.name}"`));
+            if (!alreadyAdded) {
+              problems.push({
+                id: `missing_input_${block.id}_${input.name}`,
+                severity: 'error',
+                blockId: block.id,
+                blockType: type,
+                message: `Block "${type}" is missing required input "${input.name}".`,
+                suggestion: `Connect a value block into the "${input.name}" socket.`,
+              });
+            }
           }
         }
       }
     }
 
-    // 3. Pin Mode Conflicts Check
+    // 3. Pin Mode Conflicts & Scope Check
     const declaredPins = new Map<string, string>();
     for (const [pin, mode] of ast.pinModes.entries()) {
       if (declaredPins.has(pin) && declaredPins.get(pin) !== mode) {
@@ -96,17 +113,44 @@ export class ValidationEngine {
           id: `val_pin_conflict_${pin}`,
           severity: 'warning',
           message: `Conflicting pinMode assignment for GPIO pin ${pin}: ${declaredPins.get(pin)} vs ${mode}`,
-          suggestion: `Ensure pin ${pin} is assigned a consistent mode.`,
+          suggestion: `Ensure pin ${pin} is assigned a consistent mode across your program.`,
         });
       } else {
         declaredPins.set(pin, mode);
       }
     }
 
-    // 4. Highlight Invalid Blocks on Blockly Canvas
-    this.applyCanvasBlockHighlights(workspace, problems);
+    // Check for setup-only blocks placed inside loop()
+    for (const node of ast.loopStatements) {
+      if (node.type === 'pin_mode') {
+        const pin = node.metadata?.pin || '13';
+        problems.push({
+          id: `pinmode_in_loop_${node.blockId}`,
+          severity: 'error',
+          blockId: node.blockId,
+          blockType: 'pin_mode',
+          message: `Block "Set Pin ${pin} Mode" is inside loop(). Pin mode configuration must be placed inside the Setup block.`,
+          suggestion: 'Move the "Set Pin Mode" block into the Setup block.',
+        });
+      }
+    }
 
-    return problems;
+    // Deduplicate problem list
+    const uniqueProblems: ValidationProblem[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const prob of problems) {
+      const key = `${prob.blockId || ''}_${prob.message}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueProblems.push(prob);
+      }
+    }
+
+    // 4. Highlight Invalid Blocks on Blockly Canvas
+    this.applyCanvasBlockHighlights(workspace, uniqueProblems);
+
+    return uniqueProblems;
   }
 
   private static applyCanvasBlockHighlights(

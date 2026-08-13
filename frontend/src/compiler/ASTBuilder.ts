@@ -66,9 +66,16 @@ export class ASTBuilder {
         ctx.ast.loopStatements.push(...this.processStatementChain(loopTarget, ctx));
       }
     } else {
-      // Floating statement block — default to loop execution sequence
-      ctx.ast.loopStatements.push(...this.processStatementChain(block, ctx));
-      return; // processStatementChain handles next blocks
+      // Floating statement block outside setup/loop — record validation error
+      ctx.problems.push({
+        id: `disconnected_${block.id}`,
+        severity: 'error',
+        blockId: block.id,
+        blockType: type,
+        message: `Disconnected block "${type}" is floating outside setup() / loop() containers.`,
+        suggestion: 'Drag and attach this block inside the Setup or Loop block container.',
+      });
+      return;
     }
 
     const next = block.getNextBlock();

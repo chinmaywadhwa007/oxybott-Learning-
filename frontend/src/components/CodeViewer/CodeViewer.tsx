@@ -64,71 +64,64 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
   return (
     <div
       className={`flex flex-col h-full bg-transparent select-none overflow-hidden font-sans transition-all ${
-        isFullscreen ? 'fixed inset-0 z-50 bg-[#070D18]' : ''
+        isFullscreen ? 'fixed inset-0 z-50 bg-[#2d3748]' : ''
       }`}
     >
-      {/* 1. Code Editor Header Bar */}
-      <div className="h-10 bg-[#0E1726]/80 border-b border-[#1E293B]/60 px-4 flex items-center justify-between shrink-0 font-sans">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-black text-[#5BE4FF]">
-            <Code2 className="w-4 h-4 text-[#5BE4FF]" />
-            <span className="tracking-tight">Code Editor</span>
-          </div>
+      {/* 1. Code Editor Header Bar (OxyCode Light Tabs Header) */}
+      <div className="h-10 bg-[#f1f5f9] border-b border-slate-300 px-3 flex items-center justify-between shrink-0 font-sans text-xs text-slate-800">
+        <div className="flex items-center gap-2">
+          {/* Board Selector */}
+          <select className="bg-white border border-slate-300 rounded px-2 py-0.5 text-xs font-bold text-slate-800 outline-none">
+            <option value="arduino">arduino</option>
+            <option value="esp32">ESP32</option>
+          </select>
 
-          <div className="bg-[#162234] border border-white/[0.1] rounded-lg px-2.5 py-0.5 text-[10px] font-black text-slate-200 uppercase tracking-wider shadow-sm">
-            Arduino C++ (.ino)
-          </div>
-
-          {/* Sync Status Badge */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/[0.08] text-[10px] font-bold text-slate-300">
-            {isManualEdited ? (
-              <span className="text-amber-400 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" /> Custom Edits
-              </span>
-            ) : (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Synced from Blocks
-              </span>
-            )}
+          {/* Auto Generate / Manual Editing Tabs */}
+          <div className="flex items-center ml-2 space-x-1">
+            <button
+              onClick={() => onSyncFromBlocks && onSyncFromBlocks()}
+              className={`h-9 px-3 font-bold text-xs border-b-2 transition-colors cursor-pointer ${
+                !isManualEdited
+                  ? 'border-[#8b5cf6] text-[#8b5cf6] font-extrabold'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Auto Generate
+            </button>
+            <button
+              className={`h-9 px-3 font-bold text-xs border-b-2 transition-colors cursor-pointer ${
+                isManualEdited
+                  ? 'border-[#8b5cf6] text-[#8b5cf6] font-extrabold'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Manual Editing
+            </button>
           </div>
         </div>
 
-        {/* Action Controls */}
+        {/* Action Controls & Purple Upload Button */}
         <div className="flex items-center gap-1.5">
-          {onCompile && (
-            <button
-              onClick={onCompile}
-              disabled={isCompiling}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-xs transition-all duration-200 cursor-pointer shadow-md disabled:opacity-50"
-              title="Compile sketch code"
-            >
-              <Play className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''}`} />
-              <span>{isCompiling ? 'Compiling...' : 'Compile'}</span>
-            </button>
-          )}
-
-          {onSyncFromBlocks && isManualEdited && (
-            <button
-              onClick={onSyncFromBlocks}
-              className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-              title="Resync code from visual blocks"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Resync</span>
-            </button>
-          )}
+          <button
+            onClick={onCompile}
+            disabled={isCompiling}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-extrabold text-xs transition-all duration-200 cursor-pointer shadow-sm disabled:opacity-50"
+            title="Upload code to microcontroller"
+          >
+            <span>↑ upload</span>
+          </button>
 
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             title="Copy code to clipboard"
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
           </button>
 
           <button
             onClick={handleDownload}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             title="Download .ino sketch file"
           >
             <Download className="w-4 h-4" />
@@ -136,7 +129,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -144,10 +137,10 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Code Editor Area */}
-      <div className="flex-1 flex overflow-hidden bg-[#0A101D] font-mono text-xs">
+      {/* 2. Main Dark Slate Code Editor Area */}
+      <div className="flex-1 flex overflow-hidden bg-[#2d3748] font-mono text-xs">
         {/* Line Numbers Sidebar */}
-        <div className="py-3 px-2 text-slate-600 bg-[#070C16] select-none text-right font-mono border-r border-white/[0.05] leading-relaxed shrink-0">
+        <div className="py-3 px-2 text-[#718096] bg-[#212735] select-none text-right font-mono border-r border-[#3b475d] leading-relaxed shrink-0">
           {Array.from({ length: Math.max(lineCount, 12) }).map((_, idx) => (
             <div key={idx} className="h-5">
               {idx + 1}
@@ -162,16 +155,16 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
           onChange={(e) => onChangeCode && onChangeCode(e.target.value)}
           onKeyDown={handleKeyDown}
           spellCheck={false}
-          className="flex-1 bg-transparent p-3 text-cyan-100 placeholder-slate-600 focus:outline-none resize-none font-mono text-xs leading-relaxed selection:bg-[#2563EB]/40 selection:text-white"
+          className="flex-1 bg-[#2d3748] p-3 text-[#f8fafc] placeholder-slate-400 focus:outline-none resize-none font-mono text-xs leading-relaxed selection:bg-[#4a5568] selection:text-white"
         />
       </div>
 
       {/* 3. Bottom Resource Usage Metrics Cards */}
-      <div className="bg-[#0E1726] border-t border-white/[0.08] p-2 shrink-0">
+      <div className="bg-[#212735] border-t border-[#3b475d] p-2 shrink-0 text-slate-200">
         <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {/* Card 1: Lines */}
-          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#2d3748] border border-[#3b475d] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 shrink-0">
               <AlignLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
             <div className="min-w-0">
@@ -181,8 +174,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
           </div>
 
           {/* Card 2: Flash Usage */}
-          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#2d3748] border border-[#3b475d] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shrink-0">
               <HardDrive className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
             <div className="min-w-0">
@@ -192,8 +185,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
           </div>
 
           {/* Card 3: SRAM Usage */}
-          <div className="p-1.5 sm:p-2 rounded-xl bg-[#142032] border border-white/[0.08] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+          <div className="p-1.5 sm:p-2 rounded-xl bg-[#2d3748] border border-[#3b475d] flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
               <Cpu className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
             <div className="min-w-0">

@@ -94,7 +94,7 @@ export class LibraryManagerService {
   public static async searchLibraries(query: string = ''): Promise<ArduinoLibraryInfo[]> {
     try {
       if (query.trim()) {
-        const { stdout } = await execAsync(`"${ARDUINO_CLI}" lib search "${query.trim()}" --json`);
+        const { stdout } = await execAsync(`"${ARDUINO_CLI}" lib search "${query.trim()}" --json`, { timeout: 15000 });
         const parsed = JSON.parse(stdout);
 
         if (parsed.libraries && Array.isArray(parsed.libraries)) {
@@ -125,7 +125,7 @@ export class LibraryManagerService {
    */
   public static async listInstalled(): Promise<ArduinoLibraryInfo[]> {
     try {
-      const { stdout } = await execAsync(`"${ARDUINO_CLI}" lib list --json`);
+      const { stdout } = await execAsync(`"${ARDUINO_CLI}" lib list --json`, { timeout: 15000 });
       const parsed = JSON.parse(stdout);
       if (Array.isArray(parsed)) {
         return parsed.map((item: any) => ({
@@ -155,7 +155,7 @@ export class LibraryManagerService {
     logs.push(`[Library Manager] Resolving dependencies for "${name}"...`);
 
     try {
-      const { stdout, stderr } = await execAsync(`"${ARDUINO_CLI}" lib install "${name}"`);
+      const { stdout, stderr } = await execAsync(`"${ARDUINO_CLI}" lib install "${name}"`, { timeout: 60000 });
       const output = `${stdout}\n${stderr}`.split('\n').filter(Boolean);
       logs.push(...output);
 
@@ -191,7 +191,7 @@ export class LibraryManagerService {
     logs.push(`[Library Manager] Uninstalling "${name}"...`);
 
     try {
-      const { stdout, stderr } = await execAsync(`"${ARDUINO_CLI}" lib uninstall "${name}"`);
+      const { stdout, stderr } = await execAsync(`"${ARDUINO_CLI}" lib uninstall "${name}"`, { timeout: 30000 });
       logs.push(`${stdout}\n${stderr}`);
     } catch (_) {}
 

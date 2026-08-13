@@ -14,6 +14,7 @@ export interface DetectedHardwareDevice {
   productId?: string;
   fqbn?: string;
   label?: string;
+  isVerifiedArduino?: boolean;
 }
 
 // Known USB VID / PID Lookup Database for Hardware Detection
@@ -50,24 +51,59 @@ export class BoardManagerService {
 
     // 1. Primary Method: Try arduino-cli board list --json
     try {
-      const { stdout } = await execAsync(`"${ARDUINO_CLI}" board list --json`);
+      const { stdout } = await execAsync(`"${ARDUINO_CLI}" board list --json`, { timeout: 8000 });
       const parsed = JSON.parse(stdout);
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        for (const item of parsed) {
+      const detectedList = Array.isArray(parsed)
+        ? parsed
+        : parsed?.detected_ports && Array.isArray(parsed.detected_ports)
+        ? parsed.detected_ports
+        : [];
+
+      if (detectedList.length > 0) {
+        for (const item of detectedList) {
           if (item.port && item.port.address) {
             const portName = item.port.address;
-            const vid = item.port.properties?.vid || item.port.hardware_id?.split(':')?.[0] || '';
-            const pid = item.port.properties?.pid || item.port.hardware_id?.split(':')?.[1] || '';
-            const vidPidKey = `${vid.toUpperCase()}:${pid.toUpperCase()}`;
+            const vidRaw = item.port.properties?.vid || item.port.hardware_id?.split(':')?.[0] || '';
+            const pidRaw = item.port.properties?.pid || item.port.hardware_id?.split(':')?.[1] || '';
+
+            // Clean hex prefixes (0x2341 -> 2341)
+            const vid = vidRaw.replace(/^0x/i, '').toUpperCase();
+            const pid = pidRaw.replace(/^0x/i, '').toUpperCase();
+            const vidPidKey = `${vid}:${pid}`;
 
             const knownMeta = KNOWN_VID_PID_DB[vidPidKey];
             const matchedBoard = item.matching_boards?.[0];
+            const manufacturer = item.port.properties?.manufacturer || item.port.properties?.product || '';
 
-            const boardName = matchedBoard?.name || knownMeta?.boardName || 'Arduino / USB Serial Device';
-            const vendor = knownMeta?.vendor || item.port.properties?.vendorName || 'Generic USB Vendor';
-            const chip = knownMeta?.chip || 'Microcontroller Core';
-            const fqbn = matchedBoard?.fqbn || knownMeta?.fqbn || 'arduino:avr:uno';
+            const isVerified = Boolean(
+              matchedBoard ||
+                knownMeta ||
+                /arduino|ch340|ftdi|cp210|espressif|silicon labs|wch/i.test(manufacturer)
+            );
+
+            let boardName = 'Serial Port (Unverified)';
+            let fqbn = undefined;
+            let vendor = item.port.properties?.vendorName || item.port.protocol_label || 'Serial Port';
+            let chip = 'Microcontroller Core';
+
+            if (matchedBoard) {
+              boardName = matchedBoard.name;
+              fqbn = matchedBoard.fqbn;
+              vendor = knownMeta?.vendor || item.port.properties?.manufacturer || 'Arduino SA';
+              chip = knownMeta?.chip || 'ATmega328P';
+            } else if (knownMeta) {
+              boardName = knownMeta.boardName;
+              fqbn = knownMeta.fqbn;
+              vendor = knownMeta.vendor;
+              chip = knownMeta.chip;
+            } else if (isVerified) {
+              boardName = manufacturer || 'Arduino Board';
+              fqbn = 'arduino:avr:uno';
+            } else {
+              boardName = `Serial Port (${portName})`;
+              vendor = item.port.protocol_label || 'Generic Serial';
+            }
 
             devices.push({
               boardName,
@@ -79,6 +115,7 @@ export class BoardManagerService {
               productId: pid || undefined,
               fqbn,
               label: `${portName} (${boardName})`,
+              isVerifiedArduino: isVerified,
             });
           }
         }
@@ -97,9 +134,8 @@ export class BoardManagerService {
       }
     }
 
-    // 3. Fallback / Dev Environment Simulation if no physical hardware connected
     if (devices.length === 0) {
-      return this.getSimulatedHardwareList();
+      return [];
     }
 
     // Deduplicate by port address to avoid duplicate React key warnings
@@ -118,7 +154,7 @@ export class BoardManagerService {
   private static async scanWindowsPnpSerialPorts(): Promise<DetectedHardwareDevice[]> {
     const devices: DetectedHardwareDevice[] = [];
     try {
-      const { stdout } = await execAsync('wmic path Win32_PnPEntity where "Caption like \'%COM%\'" get Caption, DeviceID /format:csv');
+      const { stdout } = await execAsync('wmic path Win32_PnPEntity where "Caption like \'%COM%\'" get Caption, DeviceID /format:csv', { timeout: 8000 });
       const lines = stdout.split('\n').filter(Boolean);
 
       for (const line of lines) {
@@ -132,10 +168,47 @@ export class BoardManagerService {
           const key = `${vid}:${pid}`;
 
           const known = KNOWN_VID_PID_DB[key];
-          const boardName = known?.boardName || (line.includes('CH340') ? 'Arduino Nano (CH340)' : line.includes('CP210') ? 'ESP32 Dev Module' : 'Arduino Uno');
-          const vendor = known?.vendor || 'USB Serial Hardware';
-          const chip = known?.chip || 'ATmega328P';
-          const fqbn = known?.fqbn || 'arduino:avr:uno';
+          const isBluetooth = /bluetooth/i.test(line);
+
+          let boardName = 'Serial Port';
+          let vendor = 'USB Serial Hardware';
+          let chip = 'Microcontroller Core';
+          let fqbn: string | undefined = undefined;
+          let isVerified = false;
+
+          if (known) {
+            boardName = known.boardName;
+            vendor = known.vendor;
+            chip = known.chip;
+            fqbn = known.fqbn;
+            isVerified = true;
+          } else if (line.includes('CH340')) {
+            boardName = 'Arduino Nano (CH340)';
+            vendor = 'WCH.cn (Qinheng)';
+            chip = 'CH340G / ATmega328P';
+            fqbn = 'arduino:avr:nano';
+            isVerified = true;
+          } else if (line.includes('CP210')) {
+            boardName = 'ESP32 Dev Module';
+            vendor = 'Silicon Labs';
+            chip = 'CP2102 / ESP32';
+            fqbn = 'esp32:esp32:esp32';
+            isVerified = true;
+          } else if (line.includes('Arduino')) {
+            boardName = 'Arduino Board';
+            vendor = 'Arduino SA';
+            chip = 'ATmega328P';
+            fqbn = 'arduino:avr:uno';
+            isVerified = true;
+          } else if (isBluetooth) {
+            boardName = `Bluetooth Link (${port})`;
+            vendor = 'Standard Bluetooth';
+            isVerified = false;
+          } else {
+            boardName = `Serial Port (${port})`;
+            vendor = 'Generic Serial';
+            isVerified = false;
+          }
 
           devices.push({
             boardName,
@@ -147,6 +220,7 @@ export class BoardManagerService {
             productId: pid || undefined,
             fqbn,
             label: `${port} (${boardName})`,
+            isVerifiedArduino: isVerified,
           });
         }
       }

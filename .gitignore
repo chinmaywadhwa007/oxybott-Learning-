@@ -12,6 +12,14 @@
 **/coverage/
 
 # ==========================
+# Windows Installer
+# ==========================
+installer-dist/
+*.exe
+*.blockmap
+builder-debug.yml
+
+# ==========================
 # Environment Variables
 # ==========================
 **/.env

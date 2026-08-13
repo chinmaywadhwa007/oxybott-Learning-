@@ -60,6 +60,7 @@ interface HeaderToolbarProps {
   onOpenImportExport?: (tab?: 'import' | 'export') => void;
   onOpenLibraryManager?: () => void;
   isCodeEmpty?: boolean;
+  isAgentRunning?: boolean;
 }
 
 export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
@@ -88,218 +89,203 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
   onOpenImportExport,
   onOpenLibraryManager,
   isCodeEmpty = false,
+  isAgentRunning = true,
 }) => {
   const { currentProject, setProjectName, saveCurrentProject } = useProjectStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <header className="relative bg-[#090F1D] border-b border-[#1E293B] select-none shrink-0 z-20 font-sans text-xs">
-      <div className="h-11 px-2.5 sm:px-4 flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar-none">
-        {/* GROUP 1: PROJECT (Logo, Explorer, Title) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Brand Logo & Studio Badge */}
-          <div className="flex items-center gap-1.5 pr-1">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-tr from-[#2563EB] to-[#38BDF8] flex items-center justify-center shadow-sm shrink-0">
-              <OxybottLogo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" showText={false} />
+    <header className="relative bg-[#0088e3] text-white border-b border-[#0066cc] select-none shrink-0 z-20 font-sans text-xs shadow-sm">
+      <div className="h-12 px-3 sm:px-4 flex items-center justify-between gap-3 overflow-x-auto custom-scrollbar-none">
+        {/* GROUP 1: BRAND LOGO & MENU DROPDOWNS */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-2 pr-2">
+            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center shadow-sm shrink-0">
+              <OxybottLogo className="w-4 h-4 text-white" showText={false} />
             </div>
-            <div className="flex items-center gap-1">
-              <span className="font-extrabold text-xs text-white tracking-tight hidden xs:inline">Oxybott</span>
-              <span className="px-1.5 py-0.5 rounded bg-[#38BDF8]/10 text-[9px] font-bold text-[#38BDF8] uppercase tracking-wider hidden sm:inline">
-                STUDIO
+            <div className="flex flex-col leading-none">
+              <span className="font-black text-sm text-white tracking-tight">OxyCode IDE</span>
+              <span className="text-[9px] font-medium text-blue-100 opacity-90">
+                Oxymora Technology
               </span>
             </div>
           </div>
 
-          {/* Project Explorer Button */}
-          {onToggleExplorer && (
-            <button
-              onClick={onToggleExplorer}
-              className="h-7 sm:h-8 px-2 rounded-lg hover:bg-white/5 text-slate-300 hover:text-white font-bold flex items-center gap-1 transition-colors cursor-pointer"
-              title="Open Project Explorer"
-            >
-              <FolderOpen className="w-3.5 h-3.5 text-[#38BDF8]" />
-              <span className="hidden md:inline text-xs">Projects</span>
-            </button>
-          )}
-
-          <div className="h-4 w-[1px] bg-[#1E293B] hidden sm:block" />
-
-          {/* Editable Project Title */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            {isEditingTitle ? (
-              <input
-                type="text"
-                autoFocus
-                value={currentProject.metadata.name}
-                onChange={(e) => setProjectName(e.target.value)}
-                onBlur={() => setIsEditingTitle(false)}
-                onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
-                className="bg-[#111A2E] text-xs font-bold text-white px-2 py-1 rounded border border-[#38BDF8] outline-none w-24 sm:w-32"
-              />
-            ) : (
+          {/* Quick Menu Pill Buttons: File, Edit, Tutorials */}
+          <div className="hidden md:flex items-center gap-1 ml-1">
+            {onToggleExplorer && (
               <button
-                onClick={() => setIsEditingTitle(true)}
-                className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-lg hover:bg-white/5 text-xs font-bold text-white transition-colors cursor-pointer flex items-center gap-1"
-                title="Click to rename project"
+                onClick={onToggleExplorer}
+                className="h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="File Menu & Projects"
               >
-                <span className="truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[160px]">{currentProject.metadata.name}</span>
-                <Edit2 className="w-3 h-3 text-slate-500 hover:text-[#38BDF8] shrink-0" />
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>File ▾</span>
               </button>
             )}
 
-            {/* Quick Undo, Redo, Save (Desktop/Tablet) */}
-            {onUndo && (
+            {onOpenImportExport && (
               <button
-                onClick={onUndo}
-                className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white hidden md:flex items-center justify-center transition-colors cursor-pointer"
-                title="Undo (Ctrl+Z)"
+                onClick={() => onOpenImportExport('export')}
+                className="h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Edit & Export"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {onRedo && (
-              <button
-                onClick={onRedo}
-                className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white hidden md:flex items-center justify-center transition-colors cursor-pointer"
-                title="Redo (Ctrl+Y)"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit ▾</span>
               </button>
             )}
 
             <button
-              onClick={saveCurrentProject}
-              className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-emerald-400 hidden sm:flex items-center justify-center transition-colors cursor-pointer"
-              title="Save Project (Ctrl+S)"
+              onClick={onToggleHints}
+              className="h-8 px-3 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-yellow-200 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-amber-300/30"
+              title="Interactive Tutorials & Hints"
             >
-              <Save className="w-3.5 h-3.5" />
+              <HelpCircle className="w-3.5 h-3.5 text-yellow-300" />
+              <span>Tutorials ▾</span>
             </button>
           </div>
         </div>
 
-        {/* GROUP 2: HARDWARE (Board Select, Port Select) - Desktop */}
-        <div className="hidden lg:flex items-center gap-2 shrink-0">
-          <div className="h-8 flex items-center gap-1.5 bg-[#111A2E] border border-[#1E293B] rounded-lg px-2.5">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Board:</span>
+        {/* GROUP 2: CENTER SEARCH BAR */}
+        <div className="hidden lg:flex items-center justify-center flex-1 max-w-xs mx-auto">
+          <div className="flex items-center bg-white rounded-lg p-0.5 shadow-inner w-full border border-blue-200">
+            <input
+              type="text"
+              placeholder="search blocks"
+              className="w-full h-7 px-3 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+            />
+            <button className="h-7 px-3 rounded-md bg-[#007acc] hover:bg-[#0066cc] text-white font-bold text-xs shrink-0 transition-colors">
+              Block Search
+            </button>
+          </div>
+        </div>
+
+        {/* GROUP 3: HARDWARE CONNECTION & MODES */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Status Indicator */}
+          {(() => {
+            if (!isAgentRunning) {
+              return (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-sm border transition-all bg-rose-500/25 border-rose-300/40 text-rose-100"
+                  title="Oxybott Arduino Agent is not running on your computer. Launch 'npm run agent' in terminal."
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shrink-0 animate-ping" />
+                  <span className="hidden sm:inline font-bold">🔴 Oxybott Agent not running</span>
+                  <span className="sm:hidden font-bold">🔴 Agent Off</span>
+                </div>
+              );
+            }
+
+            const verifiedPorts = ports.filter(
+              (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+            );
+            const isDeviceConnected = verifiedPorts.length > 0;
+            const activePort = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[0] || ports[0];
+            const activeBoardName = activePort?.boardName || boards.find((b) => b.fqbn === selectedBoardFqbn)?.name || 'Arduino';
+            const connectedLabel = activePort ? `${activeBoardName} • ${activePort.port}` : `${activeBoardName}`;
+
+            return (
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-sm border transition-all ${
+                  isDeviceConnected
+                    ? 'bg-emerald-500/25 border-emerald-300/40 text-emerald-100'
+                    : 'bg-rose-500/25 border-rose-300/40 text-rose-100'
+                }`}
+                title={isDeviceConnected ? `Hardware Connected on ${activePort?.port}` : 'No Physical Arduino Device Detected'}
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shadow-sm shrink-0 ${
+                    isDeviceConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                <span className="hidden sm:inline font-bold">
+                  {isDeviceConnected ? `🟢 ${connectedLabel}` : '🔴 No Arduino connected'}
+                </span>
+                <span className="sm:hidden font-bold">
+                  {isDeviceConnected ? `🟢 ${activePort?.port || 'On'}` : '🔴 No Board'}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Board Dropdown Selector */}
+          <div className="h-8 flex items-center bg-white text-slate-800 rounded-lg px-2 shadow-sm font-bold border border-blue-200">
             <select
               value={selectedBoardFqbn}
               onChange={(e) => onSelectBoard(e.target.value)}
-              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
             >
               {boards.map((b, idx) => (
-                <option key={`${b.id}-${b.fqbn}-${idx}`} value={b.fqbn} className="bg-[#111A2E] text-white">
+                <option key={`${b.id}-${b.fqbn}-${idx}`} value={b.fqbn} className="bg-white text-slate-800 font-medium">
                   {b.name}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="h-8 flex items-center gap-1.5 bg-[#111A2E] border border-[#1E293B] rounded-lg px-2.5">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Port:</span>
-            <select
-              value={selectedPort}
-              onChange={(e) => onSelectPort(e.target.value)}
-              className="bg-transparent text-xs font-bold text-[#38BDF8] focus:outline-none cursor-pointer pr-1"
-            >
-              {ports.map((p, idx) => (
-                <option key={`${p.port}-${idx}`} value={p.port} className="bg-[#111A2E] text-white">
-                  {p.label}
-                </option>
-              ))}
-            </select>
+          {/* Mode Pill Badges */}
+          <div className="hidden xl:flex items-center gap-1">
+            <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white font-bold text-[11px] border border-white/20">
+              Online mode
+            </span>
           </div>
-        </div>
 
-        {/* GROUP 3: PRIMARY ACTIONS (Compile & Upload) */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Compile */}
-          <button
-            onClick={onCompile}
-            disabled={isCompiling || isCodeEmpty}
-            className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-            title="Compile Sketch"
-          >
-            <Play className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''}`} />
-            <span>{isCompiling ? 'Compiling...' : 'Compile'}</span>
-          </button>
-
-          {/* Upload */}
+          {/* Upload Mode Button */}
           <button
             onClick={onUpload}
             disabled={isUploading || isCodeEmpty}
-            className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg bg-[#059669] hover:bg-[#047857] disabled:bg-slate-800 text-white font-extrabold text-xs transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-            title="Upload to Board"
+            className="h-8 px-3.5 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            title={ports.length > 0 ? "Upload Sketch to Hardware" : "Upload Disabled — No Arduino Connected"}
           >
             <Upload className={`w-3.5 h-3.5 ${isUploading ? 'animate-bounce' : ''}`} />
-            <span className="hidden xs:inline">{isUploading ? 'Uploading...' : 'Upload'}</span>
+            <span>Upload mode</span>
           </button>
 
-          {/* Mobile Hardware & Settings Drawer Toggle */}
+          {/* Primary Compile Action */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-[#142032] border border-white/10 text-slate-300 hover:text-white lg:hidden flex items-center justify-center transition-colors ml-1"
-            title="Toggle Hardware & Settings Menu"
+            onClick={onCompile}
+            disabled={isCompiling || isCodeEmpty}
+            className="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            title={ports.length > 0 ? "Compile Sketch" : "Compile Disabled — No Arduino Connected"}
           >
-            {isMobileMenuOpen ? <X className="w-4 h-4 text-[#38BDF8]" /> : <Sliders className="w-4 h-4 text-[#38BDF8]" />}
-          </button>
-        </div>
-
-        {/* GROUP 4: DESKTOP UTILITIES */}
-        <div className="hidden lg:flex items-center gap-1 shrink-0">
-          <button
-            onClick={onToggleSimulator}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              isSimulatorOpen
-                ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                : 'hover:bg-white/5 text-slate-400 hover:text-white'
-            }`}
-            title="Toggle Simulator"
-          >
-            <Tv className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden xl:inline text-xs">Simulator</span>
+            <Play className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isCompiling ? 'Compiling...' : 'Compile'}</span>
           </button>
 
-          {onOpenLibraryManager && (
-            <button
-              onClick={onOpenLibraryManager}
-              className="h-8 w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-[#38BDF8] flex items-center justify-center transition-colors cursor-pointer"
-              title="Library Manager"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          <button
-            onClick={onToggleHints}
-            className="h-8 w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-            title="Help Hints"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
-
+          {/* Settings Icon */}
           <button
             onClick={onOpenChallenges}
-            className="h-8 w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-            title="Challenges & Settings"
+            className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Settings"
           >
-            <SettingsIcon className="w-3.5 h-3.5" />
+            <SettingsIcon className="w-4 h-4" />
+          </button>
+
+          {/* Mobile Drawer Toggle */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="h-8 w-8 rounded-lg bg-white/10 text-white hover:bg-white/20 lg:hidden flex items-center justify-center transition-colors"
+            title="Toggle Menu"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Sliders className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {/* MOBILE EXPANDABLE CONTROLS DRAWER */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#0A1224] border-t border-[#1E293B] px-3 py-3 space-y-3 shadow-2xl animate-in slide-in-from-top-2 duration-200">
+        <div className="lg:hidden bg-[#007acc] border-t border-white/20 px-3 py-3 space-y-3 shadow-2xl animate-in slide-in-from-top-2 duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {/* Board Selector */}
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Board:</label>
+              <label className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Select Board:</label>
               <select
                 value={selectedBoardFqbn}
                 onChange={(e) => onSelectBoard(e.target.value)}
-                className="w-full h-8 bg-[#111A2E] border border-[#1E293B] rounded-lg px-2.5 text-xs font-bold text-white focus:outline-none"
+                className="w-full h-8 bg-white border border-blue-200 rounded-lg px-2.5 text-xs font-bold text-slate-800 focus:outline-none"
               >
                 {boards.map((b, idx) => (
                   <option key={`mob-${b.id}-${b.fqbn}-${idx}`} value={b.fqbn}>
@@ -311,11 +297,11 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
 
             {/* Port Selector */}
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Serial Port:</label>
+              <label className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Select Serial Port:</label>
               <select
                 value={selectedPort}
                 onChange={(e) => onSelectPort(e.target.value)}
-                className="w-full h-8 bg-[#111A2E] border border-[#1E293B] rounded-lg px-2.5 text-xs font-bold text-[#38BDF8] focus:outline-none"
+                className="w-full h-8 bg-white border border-blue-200 rounded-lg px-2.5 text-xs font-bold text-[#007acc] focus:outline-none"
               >
                 {ports.map((p, idx) => (
                   <option key={`mob-${p.port}-${idx}`} value={p.port}>
@@ -327,19 +313,15 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
           </div>
 
           {/* Quick Mobile Action Buttons Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-white/5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-white/10">
             <button
               onClick={() => {
                 onToggleSimulator();
                 setIsMobileMenuOpen(false);
               }}
-              className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border transition-colors ${
-                isSimulatorOpen
-                  ? 'bg-purple-600/30 text-purple-200 border-purple-500/50'
-                  : 'bg-[#142032] border-white/10 text-slate-300'
-              }`}
+              className="h-9 px-3 rounded-lg bg-white/10 text-white text-xs font-bold flex items-center justify-center gap-2"
             >
-              <Tv className="w-4 h-4 text-purple-400" />
+              <Tv className="w-4 h-4 text-purple-200" />
               <span>Simulator</span>
             </button>
 
@@ -349,9 +331,9 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
                   onOpenLibraryManager();
                   setIsMobileMenuOpen(false);
                 }}
-                className="h-9 px-3 rounded-lg bg-[#142032] border border-white/10 text-slate-300 text-xs font-bold flex items-center justify-center gap-2"
+                className="h-9 px-3 rounded-lg bg-white/10 text-white text-xs font-bold flex items-center justify-center gap-2"
               >
-                <BookOpen className="w-4 h-4 text-[#38BDF8]" />
+                <BookOpen className="w-4 h-4 text-yellow-200" />
                 <span>Libraries</span>
               </button>
             )}
@@ -361,9 +343,9 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
                 saveCurrentProject();
                 setIsMobileMenuOpen(false);
               }}
-              className="h-9 px-3 rounded-lg bg-[#142032] border border-white/10 text-slate-300 text-xs font-bold flex items-center justify-center gap-2"
+              className="h-9 px-3 rounded-lg bg-white/10 text-white text-xs font-bold flex items-center justify-center gap-2"
             >
-              <Save className="w-4 h-4 text-emerald-400" />
+              <Save className="w-4 h-4 text-emerald-300" />
               <span>Save</span>
             </button>
 
@@ -372,9 +354,9 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
                 onOpenChallenges();
                 setIsMobileMenuOpen(false);
               }}
-              className="h-9 px-3 rounded-lg bg-[#142032] border border-white/10 text-slate-300 text-xs font-bold flex items-center justify-center gap-2"
+              className="h-9 px-3 rounded-lg bg-white/10 text-white text-xs font-bold flex items-center justify-center gap-2"
             >
-              <SettingsIcon className="w-4 h-4 text-amber-400" />
+              <SettingsIcon className="w-4 h-4 text-white" />
               <span>Settings</span>
             </button>
           </div>
