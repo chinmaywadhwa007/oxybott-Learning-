@@ -130,6 +130,14 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     if (app.dock) app.dock.hide();
 
+    // Ensure agent automatically runs on Windows boot
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        path: process.execPath,
+      });
+    } catch (_) {}
+
     startAgentServer();
     createTray();
 

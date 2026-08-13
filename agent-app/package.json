@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "bundle": "node scripts/bundle-agent.js",
+    "build": "npm run build:installer",
     "build:installer": "node scripts/bundle-agent.js && electron-builder --win nsis"
   },
   "dependencies": {
@@ -23,7 +24,7 @@
     "appId": "com.oxymora.oxybott.agent",
     "productName": "Oxybott Agent",
     "executableName": "Oxybott Agent",
-    "compression": "normal",
+    "compression": "maximum",
     "directories": {
       "output": "../installer-dist"
     },
@@ -55,14 +56,13 @@
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
-      "oneClick": true,
-      "allowToChangeInstallationDirectory": false,
-      "createDesktopShortcut": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Oxybott Agent",
       "uninstallDisplayName": "Oxybott Agent",
-      "runAfterFinish": true,
-      "useZip": true
+      "runAfterFinish": true
     }
   }
 }
