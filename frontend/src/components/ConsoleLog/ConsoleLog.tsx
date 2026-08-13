@@ -187,7 +187,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
               {logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-slate-500 font-sans space-y-1 select-none">
                   <Terminal className="w-6 h-6 text-emerald-600 mb-1" />
-                  <span className="text-xs font-bold text-emerald-500">[OxyCode Serial Monitor Ready]</span>
+                  <span className="text-xs font-bold text-emerald-500">[Oxybott Serial Monitor Ready]</span>
                   <span className="text-[11px] text-slate-600">Waiting for hardware connection or compilation...</span>
                 </div>
               ) : (

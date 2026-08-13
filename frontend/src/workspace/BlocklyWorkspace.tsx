@@ -354,7 +354,7 @@ export const BlocklyWorkspace = forwardRef<BlocklyWorkspaceRef, BlocklyWorkspace
           </button>
         </div>
 
-        {/* Scratch / OxyCode Floating Backpack & Terminal Toggle Button (Bottom Center) */}
+        {/* Scratch / Oxybott Floating Backpack & Terminal Toggle Button (Bottom Center) */}
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20">
           <button
             onClick={onToggleTerminal}

@@ -67,7 +67,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
         isFullscreen ? 'fixed inset-0 z-50 bg-[#2d3748]' : ''
       }`}
     >
-      {/* 1. Code Editor Header Bar (OxyCode Light Tabs Header) */}
+      {/* 1. Code Editor Header Bar (Oxybott Light Tabs Header) */}
       <div className="h-10 bg-[#f1f5f9] border-b border-slate-300 px-3 flex items-center justify-between shrink-0 font-sans text-xs text-slate-800">
         <div className="flex items-center gap-2">
           {/* Board Selector */}

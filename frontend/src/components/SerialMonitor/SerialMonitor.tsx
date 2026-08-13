@@ -27,7 +27,7 @@ export const SerialMonitor: React.FC<SerialMonitorProps> = ({ onBack }) => {
   const [showTimestamp, setShowTimestamp] = useState(true);
   const [inputVal, setInputVal] = useState('');
   const [serialLogs, setSerialLogs] = useState<{ id: string; type: 'tx' | 'rx' | 'sys'; text: string; time: string }[]>([
-    { id: '1', type: 'sys', text: 'OxyCode Serial Channel Initialized. Select baud rate and click Connect.', time: new Date().toLocaleTimeString() },
+    { id: '1', type: 'sys', text: 'Oxybott Serial Channel Initialized. Select baud rate and click Connect.', time: new Date().toLocaleTimeString() },
   ]);
 
   const outputEndRef = useRef<HTMLDivElement | null>(null);
@@ -226,7 +226,7 @@ export const SerialMonitor: React.FC<SerialMonitorProps> = ({ onBack }) => {
       {/* 2. Pitch Black Serial Output Log Stream */}
       <div className="flex-1 bg-[#000000] p-3 overflow-y-auto space-y-1 text-[#00ff66] font-mono text-[11px] leading-relaxed custom-scrollbar">
         {serialLogs.length === 0 ? (
-          <div className="text-slate-500 italic py-2 text-center">[OxyCode Serial Monitor Ready] Click Connect to stream data...</div>
+          <div className="text-slate-500 italic py-2 text-center">[Oxybott Serial Monitor Ready] Click Connect to stream data...</div>
         ) : (
           serialLogs.map((log) => (
             <div key={log.id} className="flex items-start gap-2 hover:bg-white/[0.04] px-1 py-0.5 rounded text-[11px] transition-colors">

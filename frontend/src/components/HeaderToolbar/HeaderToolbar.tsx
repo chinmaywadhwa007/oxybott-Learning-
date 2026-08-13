@@ -106,7 +106,7 @@ export const HeaderToolbar: React.FC<HeaderToolbarProps> = ({
               <OxybottLogo className="w-4 h-4 text-white" showText={false} />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-black text-sm text-white tracking-tight">OxyCode IDE</span>
+              <span className="font-black text-sm text-white tracking-tight">Oxybott IDE</span>
               <span className="text-[9px] font-medium text-blue-100 opacity-90">
                 Oxymora Technology
               </span>

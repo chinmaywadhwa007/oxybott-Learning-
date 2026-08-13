@@ -72,7 +72,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
         isCollapsed ? 'w-14' : 'w-full'
       }`}
     >
-      {/* 1. Scratch / OxyCode IDE Top Category Tabs (Code, Costumes, Sounds) */}
+      {/* 1. Scratch / Oxybott IDE Top Category Tabs (Code, Costumes, Sounds) */}
       {!isCollapsed && (
         <div className="h-10 bg-[#e2e8f0] border-b border-slate-300 flex items-center justify-around px-2 shrink-0">
           <button
