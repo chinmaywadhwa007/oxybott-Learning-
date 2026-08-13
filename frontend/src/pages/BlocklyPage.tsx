@@ -168,6 +168,7 @@ export const BlocklyPage: React.FC = () => {
 
     const currentPortNames = verifiedPorts.map((p) => p.port);
     const isInitialLoad = prevVerifiedPortsRef.current === null;
+    let newlyAddedPort: typeof verifiedPorts[0] | null = null;
 
     if (!isInitialLoad) {
       const prevPorts = prevVerifiedPortsRef.current || [];
@@ -175,6 +176,7 @@ export const BlocklyPage: React.FC = () => {
       // 1. Detect newly plugged-in hardware boards
       for (const p of verifiedPorts) {
         if (!prevPorts.includes(p.port)) {
+          newlyAddedPort = p;
           addToast(
             `${p.boardName || 'Arduino'} Connected`,
             `Connected on ${p.port} and ready for programming.`,
@@ -207,8 +209,14 @@ export const BlocklyPage: React.FC = () => {
     prevVerifiedPortsRef.current = currentPortNames;
 
     // Automatically set active board and port if verified physical hardware is detected
-    if (verifiedPorts.length > 0) {
-      const activeP = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[0];
+    if (newlyAddedPort) {
+      // Prioritize newly plugged-in hardware board immediately
+      setSelectedPort(newlyAddedPort.port);
+      if (newlyAddedPort.fqbn) {
+        setSelectedBoardFqbn(newlyAddedPort.fqbn);
+      }
+    } else if (verifiedPorts.length > 0) {
+      const activeP = verifiedPorts.find((p) => p.port === selectedPort) || verifiedPorts[verifiedPorts.length - 1];
       if (activeP.port !== selectedPort) {
         setSelectedPort(activeP.port);
       }
