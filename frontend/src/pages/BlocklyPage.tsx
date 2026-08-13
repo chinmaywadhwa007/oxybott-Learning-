@@ -537,6 +537,10 @@ export const BlocklyPage: React.FC = () => {
   const selectedBoardObj = boards.find((b) => b.fqbn === selectedBoardFqbn);
   const currentBoardName = selectedBoardObj ? selectedBoardObj.name : 'Arduino Uno';
   const activePortObj = ports.find((p) => p.port === selectedPort);
+  const verifiedPorts = ports.filter(
+    (p) => p.isVerifiedArduino || (p.fqbn && !p.boardName?.includes('Unverified') && !p.boardName?.includes('Bluetooth'))
+  );
+  const isDeviceConnected = isAgentRunning && verifiedPorts.length > 0 && Boolean(selectedPort);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#ffffff] overflow-hidden text-slate-800 font-sans relative">
@@ -554,6 +558,7 @@ export const BlocklyPage: React.FC = () => {
         onUpload={handleUpload}
         isCompiling={isCompiling}
         isUploading={isUploading}
+        isAgentRunning={isAgentRunning}
         onToggleSimulator={() => setIsSimulatorOpen(!isSimulatorOpen)}
         isSimulatorOpen={isSimulatorOpen}
         onOpenChallenges={() => setIsChallengeOpen(true)}
@@ -571,7 +576,6 @@ export const BlocklyPage: React.FC = () => {
         }}
         onOpenLibraryManager={() => setIsLibraryManagerOpen(true)}
         isCodeEmpty={!code || code.trim() === ''}
-        isAgentRunning={isAgentRunning}
       />
 
       {/* 2. MAIN THREE-PANEL IDE LAYOUT */}
@@ -593,7 +597,7 @@ export const BlocklyPage: React.FC = () => {
                 <BoardStatusCard
                   boardName={activePortObj?.boardName || currentBoardName}
                   port={selectedPort}
-                  isConnected={true}
+                  isConnected={isDeviceConnected}
                   chip={activePortObj?.chip}
                   vendor={activePortObj?.vendor}
                   vendorId={activePortObj?.vendorId}
@@ -724,8 +728,8 @@ export const BlocklyPage: React.FC = () => {
       <div className="h-6 bg-[#007acc] text-white select-none shrink-0 z-20 px-3 flex items-center justify-between font-sans text-[11px] font-semibold border-t border-blue-600 shadow-inner">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-400" />
-            <span>Disconnected</span>
+            <span className={`w-2 h-2 rounded-full ${isDeviceConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+            <span>{isDeviceConnected ? `Connected (${selectedPort})` : 'Disconnected'}</span>
           </span>
           <span>|</span>
           <span>Board: {currentBoardName}</span>
